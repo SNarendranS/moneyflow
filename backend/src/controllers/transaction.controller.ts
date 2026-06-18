@@ -12,8 +12,9 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
 
 export const createTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const tx = await txService.createTransaction(req.user!.id, req.body);
-    sendSuccess(res, tx, 'Transaction created', 201);
+    const result = await txService.createTransaction(req.user!.id, req.body);
+    const { transaction, goalWarning } = result as any;
+    sendSuccess(res, { transaction, goalWarning }, goalWarning ? 'Transaction created with warning' : 'Transaction created', 201);
   } catch (err) { next(err); }
 };
 

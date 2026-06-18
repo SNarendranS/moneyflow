@@ -7,6 +7,7 @@ export interface IAccount extends Document {
   type: AccountType;
   openingBalance: number;
   currentBalance: number;
+  lockedAmount: number; // sum of all goal contributions from this account
   color: string;
   icon: string;
   isArchived: boolean;
@@ -25,6 +26,7 @@ const accountSchema = new Schema<IAccount>(
     },
     openingBalance: { type: Number, default: 0 },
     currentBalance: { type: Number, default: 0 },
+    lockedAmount: { type: Number, default: 0 }, // locked for goals
     color: { type: String, default: '#6366f1' },
     icon: { type: String, default: 'wallet' },
     isArchived: { type: Boolean, default: false },

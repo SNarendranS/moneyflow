@@ -56,11 +56,16 @@ export default function QuickAddModal({ onClose }: { onClose: () => void }) {
 
   const mutation = useMutation({
     mutationFn: (data: any) => transactionsAPI.create(data),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Transaction added!');
+      const goalWarning = res?.data?.data?.goalWarning;
+      if (goalWarning) {
+        toast(goalWarning, { icon: '⚠️', duration: 8000, style: { background: '#7c2d12', color: '#fed7aa', border: '1px solid #ea580c', borderRadius: '12px', maxWidth: '420px' } });
+      } else {
+        toast.success('Transaction added!');
+      }
       onClose();
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to add transaction'),

@@ -64,6 +64,8 @@ router.get('/recurring', authenticate, miscCtrl.getRecurring);
 router.post('/recurring', authenticate, validate(createRecurringSchema), miscCtrl.createRecurring);
 router.put('/recurring/:id', authenticate, miscCtrl.updateRecurring);
 router.delete('/recurring/:id', authenticate, miscCtrl.deleteRecurring);
+router.post('/recurring/:id/done', authenticate, miscCtrl.markRecurringDone);
+router.post('/recurring/:id/snooze', authenticate, miscCtrl.snoozeRecurring);
 
 // ── ANALYTICS ────────────────────────────────────────────
 router.get('/dashboard', authenticate, miscCtrl.getDashboard);

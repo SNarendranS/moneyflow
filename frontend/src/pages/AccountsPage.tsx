@@ -114,6 +114,17 @@ export default function AccountsPage() {
                       Opening: {formatCurrency(acc.openingBalance, currency)}
                     </div>
                   )}
+                  {acc.lockedAmount > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5 text-xs text-brand-400/70">
+                      <span>🔒</span>
+                      <span>{formatCurrency(acc.lockedAmount, currency)} locked for goals</span>
+                    </div>
+                  )}
+                  {acc.lockedAmount > 0 && (
+                    <div className="w-full bg-white/10 rounded-full h-1 mt-2">
+                      <div className="h-1 rounded-full bg-brand-500/50" style={{ width: `${Math.min(100, (acc.lockedAmount / Math.max(acc.currentBalance, 1)) * 100)}%` }}/>
+                    </div>
+                  )}
                 </div>
               </div>
             );

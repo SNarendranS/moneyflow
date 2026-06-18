@@ -113,20 +113,31 @@ export const deleteGoal = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const addGoalContribution = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const { amount, accountId, notes, date } = req.body;
+    if (!accountId) return sendError(res, 'accountId is required', 400);
+
     const goal = await Goal.findOne({ _id: req.params.id, userId: req.user!.id });
     if (!goal) return sendError(res, 'Goal not found', 404);
 
+    const AccountModel = (await import('../models/Account')).default;
+    const account = await AccountModel.findOne({ _id: accountId, userId: req.user!.id });
+    if (!account) return sendError(res, 'Account not found', 404);
+
+    // Lock funds in the account — money stays in balance but is reserved for this goal
+    await AccountModel.findByIdAndUpdate(accountId, { $inc: { lockedAmount: amount } });
+
     const contribution = await GoalContribution.create({
-      ...req.body,
+      amount, accountId, notes, date,
       goalId: req.params.id,
       userId: req.user!.id,
     });
 
-    goal.savedAmount += req.body.amount;
+    goal.savedAmount += amount;
     if (goal.savedAmount >= goal.targetAmount) goal.isCompleted = true;
     await goal.save();
 
-    sendSuccess(res, { goal, contribution }, 'Contribution added', 201);
+    const updatedAccount = await AccountModel.findById(accountId);
+    sendSuccess(res, { goal, contribution, account: updatedAccount }, 'Contribution added', 201);
   } catch (err) { next(err); }
 };
 
@@ -184,6 +195,83 @@ export const deleteRecurring = async (req: AuthRequest, res: Response, next: Nex
   try {
     await RecurringTransaction.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
     sendSuccess(res, null, 'Recurring transaction deleted');
+  } catch (err) { next(err); }
+};
+
+// Advance nextDueDate by one interval
+const advanceNextDue = (rec: any): Date => {
+  const current = new Date(rec.nextDueDate);
+  switch (rec.frequencyType) {
+    case 'daily':   current.setDate(current.getDate() + 1); break;
+    case 'weekly':  current.setDate(current.getDate() + 7); break;
+    case 'monthly': current.setMonth(current.getMonth() + 1); break;
+    case 'yearly':  current.setFullYear(current.getFullYear() + 1); break;
+    case 'custom':  current.setDate(current.getDate() + (rec.customDays || 30)); break;
+  }
+  return current;
+};
+
+export const markRecurringDone = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const rec = await RecurringTransaction.findOne({ _id: req.params.id, userId: req.user!.id })
+      .populate('accountId');
+    if (!rec) return sendError(res, 'Not found', 404);
+
+    const AccountModel = (await import('../models/Account')).default;
+    const Transaction = (await import('../models/Transaction')).default;
+
+    // Create the actual transaction
+    const txData: any = {
+      userId: req.user!.id,
+      type: rec.transactionType,
+      amount: rec.amount,
+      date: new Date(),
+      notes: rec.notes || rec.title,
+      recurringId: rec._id,
+    };
+
+    if (rec.transactionType === 'expense' || rec.transactionType === 'income' || rec.transactionType === 'investment') {
+      txData.accountId = rec.accountId;
+      if (rec.categoryId) txData.categoryId = rec.categoryId;
+    }
+
+    await Transaction.create(txData);
+
+    // Adjust account balance
+    const acctId = rec.accountId._id || rec.accountId;
+    if (rec.transactionType === 'income') {
+      await AccountModel.findByIdAndUpdate(acctId, { $inc: { currentBalance: rec.amount } });
+    } else if (rec.transactionType === 'expense' || rec.transactionType === 'investment') {
+      await AccountModel.findByIdAndUpdate(acctId, { $inc: { currentBalance: -rec.amount } });
+    }
+
+    // Advance the next due date
+    const nextDueDate = advanceNextDue(rec);
+    rec.lastProcessedDate = new Date();
+    rec.nextDueDate = nextDueDate;
+    rec.snoozedUntil = undefined;
+    await rec.save();
+
+    sendSuccess(res, rec, 'Marked as done, next due date updated');
+  } catch (err) { next(err); }
+};
+
+export const snoozeRecurring = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { days } = req.body; // e.g. 1, 3, 7
+    if (!days || days < 1) return sendError(res, 'days required', 400);
+
+    const rec = await RecurringTransaction.findOne({ _id: req.params.id, userId: req.user!.id });
+    if (!rec) return sendError(res, 'Not found', 404);
+
+    const snoozedUntil = new Date();
+    snoozedUntil.setDate(snoozedUntil.getDate() + days);
+    // Push nextDueDate forward by snooze days
+    rec.nextDueDate = snoozedUntil;
+    rec.snoozedUntil = snoozedUntil;
+    await rec.save();
+
+    sendSuccess(res, rec, `Snoozed for ${days} day(s)`);
   } catch (err) { next(err); }
 };
 

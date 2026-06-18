@@ -41,6 +41,7 @@ export const createGoalSchema = z.object({
 
 export const goalContributionSchema = z.object({
   amount: z.number().positive(),
+  accountId: z.string().min(1, 'accountId is required'),
   date: z.string().or(z.date()).optional(),
   notes: z.string().max(500).optional(),
 });

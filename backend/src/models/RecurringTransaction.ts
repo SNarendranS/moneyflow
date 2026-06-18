@@ -14,6 +14,8 @@ export interface IRecurringTransaction extends Document {
   notes?: string;
   isActive: boolean;
   lastProcessedDate?: Date;
+  // snooze support
+  snoozedUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +42,7 @@ const recurringSchema = new Schema<IRecurringTransaction>(
     notes: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
     lastProcessedDate: { type: Date },
+    snoozedUntil: { type: Date },
   },
   { timestamps: true }
 );

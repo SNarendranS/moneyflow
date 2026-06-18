@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { goalsAPI } from '../services/api';
+import { goalsAPI, accountsAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils';
 import { useAuth } from '../store/auth';
 import { Plus, Trash2, Target, PlusCircle } from 'lucide-react';
@@ -17,7 +17,7 @@ const goalSchema = z.object({
   targetDate: z.string().min(1, 'Date required'),
   color: z.string().default('#6366f1'),
 });
-const contribSchema = z.object({ amount: z.coerce.number().positive(), notes: z.string().optional() });
+const contribSchema = z.object({ amount: z.coerce.number().positive(), accountId: z.string().min(1, 'Select an account'), notes: z.string().optional() });
 type GoalForm = z.infer<typeof goalSchema>;
 type ContribForm = z.infer<typeof contribSchema>;
 
@@ -29,6 +29,8 @@ export default function GoalsPage() {
   const currency = user?.currency || 'INR';
   const [showAdd, setShowAdd] = useState(false);
   const [contributeFor, setContributeFor] = useState<any>(null);
+
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsAPI.list().then(r => r.data.data) });
 
   const { data: goals = [], isLoading } = useQuery({
     queryKey: ['goals'],
@@ -128,6 +130,12 @@ export default function GoalsPage() {
             <span className="text-emerald-400 text-sm font-medium">🎉 Goal Achieved!</span>
           </div>
         )}
+        {!goal.isCompleted && goal.savedAmount > 0 && (
+          <div className="mt-2 text-xs text-brand-400/70 flex items-center gap-1">
+            <span>🔒</span>
+            <span>{formatCurrency(goal.savedAmount, currency)} locked across accounts</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -225,6 +233,17 @@ export default function GoalsPage() {
                 <label className="label">Amount</label>
                 <input {...contribReg('amount')} type="number" step="0.01" placeholder="0.00" className="input font-mono"/>
                 {contribErrors.amount && <p className="text-xs text-red-400 mt-1">{contribErrors.amount.message}</p>}
+              </div>
+              <div>
+                <label className="label">Lock funds from account</label>
+                <select {...contribReg('accountId')} className="input">
+                  <option value="">Select account</option>
+                  {accounts.map((a: any) => (
+                    <option key={a._id} value={a._id}>{a.name} — {formatCurrency(a.currentBalance, currency)} (locked: {formatCurrency(a.lockedAmount || 0, currency)})</option>
+                  ))}
+                </select>
+                {contribErrors.accountId && <p className="text-xs text-red-400 mt-1">{contribErrors.accountId.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">Money stays in your account but is reserved for this goal. You will be warned if you spend from it.</p>
               </div>
               <div>
                 <label className="label">Notes (optional)</label>

@@ -14,18 +14,10 @@ const adjustAccountBalance = async (
 };
 
 export const createTransaction = async (userId: string, data: any) => {
-  // Strip empty strings from optional ObjectId fields to avoid cast errors
-  const OPTIONAL_ID_FIELDS = ['categoryId', 'subCategoryId', 'accountId', 'fromAccountId', 'toAccountId', 'recurringId'];
-  const clean = { ...data };
-  for (const field of OPTIONAL_ID_FIELDS) {
-    if (clean[field] === '' || clean[field] === null) delete clean[field];
-  }
-  if (Array.isArray(clean.tags)) clean.tags = clean.tags.filter((t: string) => t !== '');
-
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const tx = await Transaction.create([{ ...clean, userId }], { session });
+    const tx = await Transaction.create([{ ...data, userId }], { session });
     const t = tx[0];
 
     if (t.type === 'income' && t.accountId) {
@@ -44,8 +36,21 @@ export const createTransaction = async (userId: string, data: any) => {
     }
 
     await session.commitTransaction();
-    return Transaction.findById(t._id)
-      .populate('accountId categoryId subCategoryId tags fromAccountId toAccountId');
+
+    // After committing, check if the account dips into locked (goal) funds — attach warning
+    const result = await Transaction.findById(t._id)
+      .populate('accountId categoryId subCategoryId tags fromAccountId toAccountId') as any;
+
+    let goalWarning: string | null = null;
+    const checkAccountId = t.accountId || t.fromAccountId;
+    if (checkAccountId && (t.type === 'expense' || t.type === 'transfer')) {
+      const acc = await Account.findById(checkAccountId);
+      if (acc && acc.lockedAmount > 0 && acc.currentBalance < acc.lockedAmount) {
+        goalWarning = `⚠️ Warning: Your ${acc.name} balance (₹${acc.currentBalance.toLocaleString()}) is now below its locked goal amount (₹${acc.lockedAmount.toLocaleString()}). This transaction used funds reserved for a goal.`;
+      }
+    }
+
+    return { transaction: result, goalWarning };
   } catch (err) {
     await session.abortTransaction();
     throw err;

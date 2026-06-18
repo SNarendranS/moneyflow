@@ -116,6 +116,11 @@ export const goalsAPI = {
   contributions: (id: string) => api.get(`/goals/${id}/contributions`),
 };
 
+export const recurringActionAPI = {
+  markDone: (id: string) => api.post(`/recurring/${id}/done`),
+  snooze: (id: string, days: number) => api.post(`/recurring/${id}/snooze`, { days }),
+};
+
 export const recurringAPI = {
   list: () => api.get('/recurring'),
   create: (data: any) => api.post('/recurring', data),

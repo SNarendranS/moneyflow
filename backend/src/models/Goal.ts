@@ -34,6 +34,7 @@ export const Goal = mongoose.model<IGoal>('Goal', goalSchema);
 export interface IGoalContribution extends Document {
   userId: mongoose.Types.ObjectId;
   goalId: mongoose.Types.ObjectId;
+  accountId: mongoose.Types.ObjectId; // which account was locked
   amount: number;
   date: Date;
   notes?: string;
@@ -44,6 +45,7 @@ const goalContributionSchema = new Schema<IGoalContribution>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     goalId: { type: Schema.Types.ObjectId, ref: 'Goal', required: true },
+    accountId: { type: Schema.Types.ObjectId, ref: 'Account', required: true },
     amount: { type: Number, required: true, min: 0 },
     date: { type: Date, default: Date.now },
     notes: { type: String, trim: true },
@@ -52,6 +54,7 @@ const goalContributionSchema = new Schema<IGoalContribution>(
 );
 
 goalContributionSchema.index({ userId: 1, goalId: 1 });
+goalContributionSchema.index({ userId: 1, accountId: 1 });
 
 export const GoalContribution = mongoose.model<IGoalContribution>(
   'GoalContribution',

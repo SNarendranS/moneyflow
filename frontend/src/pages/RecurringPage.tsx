@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { recurringAPI, accountsAPI, categoriesAPI } from '../services/api';
+import { recurringAPI, recurringActionAPI, accountsAPI, categoriesAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils';
 import { useAuth } from '../store/auth';
-import { Plus, Trash2, RefreshCw, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, AlertCircle, Clock, Calendar, CheckCircle, BellOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,10 +23,17 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const STATUS_CONFIG: Record<string, { label: string; classes: string; icon: any }> = {
-  overdue: { label: 'Overdue', classes: 'bg-red-500/10 text-red-400 border-red-500/20', icon: AlertCircle },
-  due_soon: { label: 'Due Soon', classes: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: Clock },
-  upcoming: { label: 'Upcoming', classes: 'bg-white/5 text-gray-400 border-white/10', icon: Calendar },
+const SNOOZE_OPTIONS = [
+  { label: '1 day', days: 1 },
+  { label: '3 days', days: 3 },
+  { label: '1 week', days: 7 },
+  { label: '2 weeks', days: 14 },
+];
+
+const STATUS_CONFIG: Record<string, { label: string; cardClass: string; badgeClass: string; icon: any }> = {
+  overdue:  { label: 'Overdue',   cardClass: 'border-red-500/30 bg-red-500/5',    badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20',    icon: AlertCircle },
+  due_soon: { label: 'Due Soon',  cardClass: 'border-amber-500/30 bg-amber-500/5', badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: Clock },
+  upcoming: { label: 'Upcoming',  cardClass: 'border-white/10',                   badgeClass: 'bg-white/5 text-gray-400 border-white/10',          icon: Calendar },
 };
 
 export default function RecurringPage() {
@@ -34,6 +41,7 @@ export default function RecurringPage() {
   const qc = useQueryClient();
   const currency = user?.currency || 'INR';
   const [showAdd, setShowAdd] = useState(false);
+  const [actionModal, setActionModal] = useState<any>(null); // the recurring item being actioned
 
   const { data: recurring = [], isLoading } = useQuery({
     queryKey: ['recurring'],
@@ -61,24 +69,49 @@ export default function RecurringPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recurring'] }); toast.success('Deleted'); },
   });
 
+  const markDone = useMutation({
+    mutationFn: (id: string) => recurringActionAPI.markDone(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['recurring'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('✅ Marked as done! Transaction recorded and next due date updated.');
+      setActionModal(null);
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const snooze = useMutation({
+    mutationFn: ({ id, days }: { id: string; days: number }) => recurringActionAPI.snooze(id, days),
+    onSuccess: (_, { days }) => {
+      qc.invalidateQueries({ queryKey: ['recurring'] });
+      toast.success(`⏰ Snoozed for ${days} day(s)`);
+      setActionModal(null);
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { transactionType: 'expense', frequencyType: 'monthly', nextDueDate: new Date().toISOString().split('T')[0] },
   });
 
   const freqType = watch('frequencyType');
-  const overdue = recurring.filter((r: any) => r.status === 'overdue');
-  const dueSoon = recurring.filter((r: any) => r.status === 'due_soon');
+  const overdue  = recurring.filter((r: any) => r.status === 'overdue');
+  const dueSoon  = recurring.filter((r: any) => r.status === 'due_soon');
   const upcoming = recurring.filter((r: any) => r.status === 'upcoming');
 
   const RecurringCard = ({ r }: { r: any }) => {
     const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.upcoming;
     const Icon = cfg.icon;
+    const isActionable = r.status === 'overdue' || r.status === 'due_soon';
+
     return (
-      <div className={cn('card p-4 border group', cfg.classes.split(' ').find(c => c.startsWith('border')) || 'border-white/10')}>
+      <div className={cn('card p-4 border group', cfg.cardClass)}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', cfg.classes.split(' ').slice(0,2).join(' '))}>
+            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center border', cfg.badgeClass)}>
               <Icon size={16}/>
             </div>
             <div>
@@ -93,12 +126,22 @@ export default function RecurringPage() {
             <Trash2 size={14}/>
           </button>
         </div>
+
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
-          <span className={cn('badge border', cfg.classes)}><Icon size={11}/>{cfg.label}</span>
           <div className="text-right">
             <div className="font-mono font-semibold text-white">{formatCurrency(r.amount, currency)}</div>
             <div className="text-xs text-gray-500">Due {formatDate(r.nextDueDate)}</div>
           </div>
+          {isActionable ? (
+            <button
+              onClick={() => setActionModal(r)}
+              className="btn-primary text-sm px-3 py-1.5 flex items-center gap-1.5"
+            >
+              <CheckCircle size={14}/> Action
+            </button>
+          ) : (
+            <span className={cn('badge border', cfg.badgeClass)}><Icon size={11}/>{cfg.label}</span>
+          )}
         </div>
       </div>
     );
@@ -140,6 +183,53 @@ export default function RecurringPage() {
         </div>
       )}
 
+      {/* ── ACTION MODAL (Done / Snooze) ── */}
+      {actionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActionModal(null)}/>
+          <div className="relative z-10 w-full max-w-sm card p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-white mb-1">{actionModal.title}</h2>
+            <p className="text-muted text-sm mb-5">
+              {actionModal.status === 'overdue' ? '⚠️ Overdue' : '⏰ Due soon'} · {formatDate(actionModal.nextDueDate)} · {formatCurrency(actionModal.amount, currency)}
+            </p>
+
+            {/* Mark Done */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-2">Has this payment been made?</p>
+              <button
+                onClick={() => markDone.mutate(actionModal._id)}
+                disabled={markDone.isPending}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 font-medium py-3 rounded-xl transition-colors"
+              >
+                <CheckCircle size={18}/>
+                {markDone.isPending ? 'Recording…' : 'Yes, mark as done'}
+              </button>
+              <p className="text-xs text-gray-600 mt-1.5 text-center">This will record the transaction and deduct from {actionModal.accountId?.name}</p>
+            </div>
+
+            {/* Snooze */}
+            <div>
+              <p className="text-sm text-gray-400 mb-2 flex items-center gap-1.5"><BellOff size={14}/> Not yet — snooze reminder</p>
+              <div className="grid grid-cols-4 gap-2">
+                {SNOOZE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.days}
+                    onClick={() => snooze.mutate({ id: actionModal._id, days: opt.days })}
+                    disabled={snooze.isPending}
+                    className="py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-300 transition-colors text-center"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={() => setActionModal(null)} className="w-full btn-ghost mt-4 text-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD MODAL ── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAdd(false)}/>
