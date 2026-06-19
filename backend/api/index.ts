@@ -1,35 +1,22 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import mongoose from 'mongoose';
-import routes from '../src/routes/index';
-import { errorHandler, notFound } from '../src/middlewares/errorHandler';
+import { createApp } from '../src/app';
+import { connectDB } from '../src/config/database';
 
-const app = express();
+const app = createApp();
+let dbPromise: Promise<void> | null = null;
 
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true,
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+const ensureDatabase = () => {
+  if (!dbPromise) {
+    dbPromise = connectDB().catch((err) => {
+      dbPromise = null;
+      throw err;
+    });
+  }
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-app.use('/api', routes);
-app.use(notFound);
-app.use(errorHandler);
-
-// Connect MongoDB once (reused across warm invocations)
-let isConnected = false;
-const connectDB = async () => {
-  if (isConnected) return;
-  await mongoose.connect(process.env.MONGODB_URI!);
-  isConnected = true;
+  return dbPromise;
 };
 
 export default async function handler(req: any, res: any) {
-  await connectDB();
+  await ensureDatabase();
   return app(req, res);
 }
