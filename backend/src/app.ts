@@ -29,12 +29,13 @@ export const createApp = () => {
   console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
   console.log('ALLOWED_ORIGINS:', allowedOrigins);
   app.use(helmet());
-  app.use(cors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-  }));
+  // app.use(cors({
+  //   origin: allowedOrigins,
+  //   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  //   allowedHeaders: ['Content-Type', 'Authorization'],
+  //   credentials: false,
+  // }));
+  app.use(cors());
   app.options('*', cors());
   app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
 
