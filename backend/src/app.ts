@@ -19,7 +19,9 @@ const parseAllowedOrigins = (): string[] => {
 export const createApp = () => {
   const app = express();
   const allowedOrigins = parseAllowedOrigins();
-
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+  console.log('ALLOWED_ORIGINS:', allowedOrigins);
   app.use(helmet());
   app.use(cors({
     origin: allowedOrigins,
