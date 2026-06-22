@@ -8,7 +8,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
-const CHART_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316','#84cc16'];
+const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16'];
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
@@ -44,7 +44,7 @@ export default function AnalyticsPage() {
     if (!monthly) return [];
     const map: Record<string, any> = {};
     monthly.forEach((item: any) => {
-      const key = `${item._id.year}-${String(item._id.month).padStart(2,'0')}`;
+      const key = `${item._id.year}-${String(item._id.month).padStart(2, '0')}`;
       if (!map[key]) map[key] = { month: format(new Date(item._id.year, item._id.month - 1), 'MMM yy'), income: 0, expense: 0, investment: 0 };
       map[key][item._id.type] = item.total;
     });
@@ -56,7 +56,7 @@ export default function AnalyticsPage() {
     if (!savingsData) return [];
     const map: Record<string, any> = {};
     savingsData.forEach((item: any) => {
-      const key = `${item._id.year}-${String(item._id.month).padStart(2,'0')}`;
+      const key = `${item._id.year}-${String(item._id.month).padStart(2, '0')}`;
       if (!map[key]) map[key] = { month: format(new Date(item._id.year, item._id.month - 1), 'MMM'), income: 0, expense: 0 };
       map[key][item._id.type] = item.total;
     });
@@ -75,7 +75,8 @@ export default function AnalyticsPage() {
 
   const totalExpense = catData.reduce((s: number, c: any) => s + c.value, 0);
 
-  const tooltipStyle = { background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '13px' };
+  const tooltipStyle = { background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '13px', color: '#f3f4f6' };
+  const tooltipItemStyle = { color: '#f3f4f6' }
 
   return (
     <div className="space-y-6">
@@ -104,13 +105,13 @@ export default function AnalyticsPage() {
         {monthlyChart.length > 0 ? (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={monthlyChart} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v/1000)}k`}/>
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatCurrency(v, currency)}/>
-              <Legend wrapperStyle={{ fontSize: '13px', color: '#9ca3af' }}/>
-              <Bar dataKey="income" name="Income" fill="#10b981" radius={[4,4,0,0]}/>
-              <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4,4,0,0]}/>
-              <Bar dataKey="investment" name="Investment" fill="#8b5cf6" radius={[4,4,0,0]}/>
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatCurrency(v, currency)} />
+              <Legend wrapperStyle={{ fontSize: '13px', color: '#9ca3af' }} />
+              <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="investment" name="Investment" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : <div className="h-[260px] flex items-center justify-center text-muted">No data yet</div>}
@@ -126,16 +127,16 @@ export default function AnalyticsPage() {
                 <PieChart>
                   <Pie data={catData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={2} dataKey="value">
                     {catData.map((entry: any, i: number) => (
-                      <Cell key={i} fill={entry.color || CHART_COLORS[i % CHART_COLORS.length]}/>
+                      <Cell key={i} fill={entry.color || CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatCurrency(v, currency)}/>
+                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} formatter={(v: any) => formatCurrency(v, currency)} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-2 overflow-y-auto max-h-[200px] pr-1">
                 {catData.map((cat: any, i: number) => (
                   <div key={i} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }}/>
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
                     <span className="text-sm text-gray-300 flex-1 truncate">{cat.name}</span>
                     <span className="text-xs text-gray-500 font-mono">{Math.round((cat.value / totalExpense) * 100)}%</span>
                   </div>
@@ -153,14 +154,14 @@ export default function AnalyticsPage() {
               <AreaChart data={savingsChart} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} unit="%"/>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => `${v}%`}/>
-                <Area type="monotone" dataKey="rate" name="Savings Rate" stroke="#6366f1" fill="url(#savingsGrad)" strokeWidth={2}/>
+                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => `${v}%`} />
+                <Area type="monotone" dataKey="rate" name="Savings Rate" stroke="#6366f1" fill="url(#savingsGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           ) : <div className="h-[200px] flex items-center justify-center text-muted">No data yet</div>}
