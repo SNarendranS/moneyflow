@@ -14,10 +14,18 @@ const adjustAccountBalance = async (
 };
 
 export const createTransaction = async (userId: string, data: any) => {
+  // Strip empty strings from optional ObjectId fields to avoid cast errors
+  const OPTIONAL_ID_FIELDS = ['categoryId', 'subCategoryId', 'accountId', 'fromAccountId', 'toAccountId', 'recurringId'];
+  const clean = { ...data };
+  for (const field of OPTIONAL_ID_FIELDS) {
+    if (clean[field] === '' || clean[field] === null) delete clean[field];
+  }
+  if (Array.isArray(clean.tags)) clean.tags = clean.tags.filter((t: string) => t !== '');
+
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const tx = await Transaction.create([{ ...data, userId }], { session });
+    const tx = await Transaction.create([{ ...clean, userId }], { session });
     const t = tx[0];
 
     if (t.type === 'income' && t.accountId) {
