@@ -15,7 +15,12 @@ import {
 import { createTransactionSchema } from '../validators/transaction.validator';
 
 const router = Router();
-
+router.get('/test', (_req, res) => {
+  res.json({
+    success: true,
+    message: 'API route working'
+  });
+});
 // ── AUTH ──────────────────────────────────────────────────
 router.post('/auth/register', validate(registerSchema), authCtrl.register);
 router.post('/auth/login', validate(loginSchema), authCtrl.login);
