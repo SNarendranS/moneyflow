@@ -15,7 +15,7 @@ import {
 import { createTransactionSchema } from '../validators/transaction.validator';
 
 const router = Router();
-router.get('/test', (_req, res) => {
+router.get('/health', (_req, res) => {
   res.json({
     success: true,
     message: 'API route working'
