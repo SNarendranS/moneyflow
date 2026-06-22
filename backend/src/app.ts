@@ -19,6 +19,11 @@ const parseAllowedOrigins = (): string[] => {
 export const createApp = () => {
   const app = express();
   app.set('trust proxy', 1);
+    app.use((req, _res, next) => {
+    console.log('REQUEST:', req.method, req.originalUrl);
+    console.log('ORIGIN:', req.headers.origin);
+    next();
+  });
   const allowedOrigins = parseAllowedOrigins();
   console.log('NODE_ENV:', process.env.NODE_ENV);
   console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
