@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Tag, Target, RefreshCw,
-  BarChart2, User, LogOut, Bell, Search, Menu, X, ChevronRight,
+  BarChart2, User, LogOut, Search, Menu, ChevronRight, Coins ,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { useQuery } from '@tanstack/react-query';
-import { notificationsAPI } from '../services/api';
 import { cn } from '../utils';
 import QuickAddModal from '../components/transactions/QuickAddModal';
 import SearchModal from '../components/common/SearchModal';
+import NotificationPanel from '../components/common/NotificationPanel';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -18,6 +17,7 @@ const NAV = [
   { to: '/categories', icon: Tag, label: 'Categories' },
   { to: '/goals', icon: Target, label: 'Goals' },
   { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
+  { to: '/lending', icon: Coins, label: 'Lending' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
 ];
 
@@ -27,14 +27,6 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-
-  const { data: notifData } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => notificationsAPI.list().then(r => r.data.data),
-    refetchInterval: 60000,
-  });
-
-  const unreadCount = notifData?.filter((n: any) => !n.isRead).length ?? 0;
 
   const handleLogout = async () => {
     await logout();
@@ -134,12 +126,7 @@ export default function AppLayout() {
           </button>
 
           <div className="ml-auto flex items-center gap-1">
-            <button className="btn-ghost p-2 relative">
-              <Bell size={18} />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-500 rounded-full" />
-              )}
-            </button>
+            <NotificationPanel />
           </div>
         </header>
 

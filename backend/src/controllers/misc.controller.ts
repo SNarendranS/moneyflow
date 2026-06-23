@@ -210,6 +210,36 @@ export const getRecurring = async (req: AuthRequest, res: Response, next: NextFu
       return { ...r.toObject(), status };
     });
 
+    // Generate a notification for any overdue/due-soon item that doesn't
+    // already have one created today, so the bell icon reflects recurring bills.
+    const actionable = withStatus.filter((r: any) => r.status === 'overdue' || r.status === 'due_soon');
+    if (actionable.length > 0) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      for (const r of actionable) {
+        const exists = await Notification.findOne({
+          userId: req.user!.id,
+          relatedId: r._id,
+          relatedModel: 'RecurringTransaction',
+          createdAt: { $gte: startOfToday },
+        });
+        if (exists) continue;
+
+        const isOverdue = r.status === 'overdue';
+        await Notification.create({
+          userId: req.user!.id,
+          type: r.transactionType === 'investment' ? 'sip_due' : 'bill_due',
+          title: isOverdue ? `${r.title} is overdue` : `${r.title} is due soon`,
+          message: isOverdue
+            ? `${r.title} (₹${r.amount}) was due on ${new Date(r.nextDueDate).toLocaleDateString()}. Mark it as done or snooze it.`
+            : `${r.title} (₹${r.amount}) is due on ${new Date(r.nextDueDate).toLocaleDateString()}.`,
+          relatedId: r._id,
+          relatedModel: 'RecurringTransaction',
+        });
+      }
+    }
+
     sendSuccess(res, withStatus);
   } catch (err) { next(err); }
 };
@@ -294,6 +324,9 @@ export const markRecurringDone = async (req: AuthRequest, res: Response, next: N
     rec.snoozedUntil = undefined;
     await rec.save();
 
+    // Clear any pending notifications tied to this recurring item
+    await Notification.deleteMany({ relatedId: rec._id, relatedModel: 'RecurringTransaction', isRead: false });
+
     sendSuccess(res, rec, 'Marked as done, next due date updated');
   } catch (err) { next(err); }
 };
@@ -312,6 +345,10 @@ export const snoozeRecurring = async (req: AuthRequest, res: Response, next: Nex
     rec.nextDueDate = snoozedUntil;
     rec.snoozedUntil = snoozedUntil;
     await rec.save();
+
+    // Clear any pending notifications tied to this recurring item — a fresh one
+    // will be generated once it becomes due/overdue again
+    await Notification.deleteMany({ relatedId: rec._id, relatedModel: 'RecurringTransaction', isRead: false });
 
     sendSuccess(res, rec, `Snoozed for ${days} day(s)`);
   } catch (err) { next(err); }

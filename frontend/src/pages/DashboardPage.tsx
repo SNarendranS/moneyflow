@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsAPI, transactionsAPI, recurringAPI } from '../services/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, lendingAPI } from '../services/api';
 import { formatCurrency, formatDate, getTransactionColor, getTransactionSign } from '../utils';
 import { useAuth } from '../store/auth';
-import { TrendingUp, TrendingDown, ArrowLeftRight, PiggyBank, Zap, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowLeftRight, PiggyBank, Zap, Clock, Coins } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 
@@ -46,6 +46,11 @@ export default function DashboardPage() {
     queryFn: () => analyticsAPI.monthly(6).then(r => r.data.data),
   });
 
+  const { data: lendingSummary } = useQuery({
+    queryKey: ['lending-summary'],
+    queryFn: () => lendingAPI.summary().then(r => r.data.data),
+  });
+
   const stats = dash?.stats || {};
   const currency = user?.currency || 'INR';
 
@@ -86,6 +91,26 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Lending summary — only show if there's any pending lending/borrowing */}
+      {lendingSummary && (lendingSummary.totalOwedToYou > 0 || lendingSummary.totalYouOwe > 0) && (
+        <div className="card p-4 flex items-center gap-4">
+          <div className="w-9 h-9 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-400 flex-shrink-0">
+            <Coins size={18} />
+          </div>
+          <div className="flex-1 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Owed to you</p>
+              <p className="text-sm font-mono font-semibold text-emerald-400 mt-0.5">{formatCurrency(lendingSummary.totalOwedToYou, currency)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">You owe</p>
+              <p className="text-sm font-mono font-semibold text-amber-400 mt-0.5">{formatCurrency(lendingSummary.totalYouOwe, currency)}</p>
+            </div>
+          </div>
+          <a href="/lending" className="text-xs text-brand-400 hover:text-brand-300 flex-shrink-0">View all →</a>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

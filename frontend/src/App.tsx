@@ -10,6 +10,7 @@ import AccountsPage from './pages/AccountsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import GoalsPage from './pages/GoalsPage';
 import RecurringPage from './pages/RecurringPage';
+import LendingPage from './pages/LendingPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ProfilePage from './pages/ProfilePage';
 
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/recurring" element={<RecurringPage />} />
+            <Route path="/lending" element={<LendingPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>

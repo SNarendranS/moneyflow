@@ -140,6 +140,15 @@ export const analyticsAPI = {
   family: () => api.get('/analytics/family'),
 };
 
+export const lendingAPI = {
+  list: (params?: { status?: string; direction?: string }) => api.get('/lending', { params }),
+  summary: () => api.get('/lending/summary'),
+  create: (data: any) => api.post('/lending', data),
+  update: (id: string, data: any) => api.put(`/lending/${id}`, data),
+  settle: (id: string, data: any) => api.post(`/lending/${id}/settle`, data),
+  delete: (id: string) => api.delete(`/lending/${id}`),
+};
+
 export const notificationsAPI = {
   list: () => api.get('/notifications'),
   markRead: (id: string) => api.patch(`/notifications/${id}/read`),

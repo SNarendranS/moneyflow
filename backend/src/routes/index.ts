@@ -3,6 +3,7 @@ import * as authCtrl from '../controllers/auth.controller';
 import * as accountCtrl from '../controllers/account.controller';
 import * as txCtrl from '../controllers/transaction.controller';
 import * as miscCtrl from '../controllers/misc.controller';
+import * as lendingCtrl from '../controllers/lending.controller';
 import { authenticate } from '../middlewares/auth';
 import { validate } from '../middlewares/validate';
 import {
@@ -13,6 +14,7 @@ import {
   createTagSchema, createGoalSchema, goalContributionSchema, createRecurringSchema,
 } from '../validators/index.validator';
 import { createTransactionSchema, updateTransactionSchema } from '../validators/transaction.validator';
+import { createLendingSchema, updateLendingSchema, settleLendingSchema } from '../validators/lending.validator';
 
 const router = Router();
 
@@ -69,6 +71,14 @@ router.put('/recurring/:id', authenticate, miscCtrl.updateRecurring);
 router.delete('/recurring/:id', authenticate, miscCtrl.deleteRecurring);
 router.post('/recurring/:id/done', authenticate, miscCtrl.markRecurringDone);
 router.post('/recurring/:id/snooze', authenticate, miscCtrl.snoozeRecurring);
+
+// ── LENDING (IOU tracker — money lent to or borrowed from people) ──
+router.get('/lending', authenticate, lendingCtrl.getLendings);
+router.get('/lending/summary', authenticate, lendingCtrl.getLendingSummary);
+router.post('/lending', authenticate, validate(createLendingSchema), lendingCtrl.createLending);
+router.put('/lending/:id', authenticate, validate(updateLendingSchema), lendingCtrl.updateLending);
+router.post('/lending/:id/settle', authenticate, validate(settleLendingSchema), lendingCtrl.settleLending);
+router.delete('/lending/:id', authenticate, lendingCtrl.deleteLending);
 
 // ── ANALYTICS ────────────────────────────────────────────
 router.get('/dashboard', authenticate, miscCtrl.getDashboard);
