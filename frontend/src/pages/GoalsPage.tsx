@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { goalsAPI, accountsAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils';
 import { useAuth } from '../store/auth';
-import { Plus, Trash2, Target, PlusCircle } from 'lucide-react';
+import { Plus, Trash2, Target, PlusCircle, Pencil, Lock, Unlock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { cn } from '../utils';
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 
 const goalSchema = z.object({
   title: z.string().min(1, 'Title required'),
@@ -28,7 +28,9 @@ export default function GoalsPage() {
   const qc = useQueryClient();
   const currency = user?.currency || 'INR';
   const [showAdd, setShowAdd] = useState(false);
+  const [editGoal, setEditGoal] = useState<any>(null);
   const [contributeFor, setContributeFor] = useState<any>(null);
+  const [manageFor, setManageFor] = useState<any>(null); // goal whose locked contributions are being managed
 
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsAPI.list().then(r => r.data.data) });
 
@@ -37,33 +39,84 @@ export default function GoalsPage() {
     queryFn: () => goalsAPI.list().then(r => r.data.data),
   });
 
+  const { data: contributions = [] } = useQuery({
+    queryKey: ['goal-contributions', manageFor?._id],
+    queryFn: () => goalsAPI.contributions(manageFor._id).then(r => r.data.data),
+    enabled: !!manageFor,
+  });
+
   const createGoal = useMutation({
     mutationFn: (d: GoalForm) => goalsAPI.create(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Goal created!'); setShowAdd(false); goalReset(); },
     onError: () => toast.error('Failed'),
   });
 
+  const updateGoal = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: GoalForm }) => goalsAPI.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Goal updated!'); setEditGoal(null); editReset(); },
+    onError: () => toast.error('Failed'),
+  });
+
   const deleteGoal = useMutation({
     mutationFn: (id: string) => goalsAPI.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Goal deleted'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['goals'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('Goal deleted, locked funds released');
+    },
   });
 
   const contribute = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ContribForm }) => goalsAPI.contribute(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goals'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Contribution added!'); setContributeFor(null); contribReset(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['goals'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('Contribution added!'); setContributeFor(null); contribReset();
+    },
+    onError: () => toast.error('Failed'),
+  });
+
+  const deleteContribution = useMutation({
+    mutationFn: ({ goalId, contributionId }: { goalId: string; contributionId: string }) =>
+      goalsAPI.deleteContribution(goalId, contributionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['goals'] });
+      qc.invalidateQueries({ queryKey: ['goal-contributions'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Funds unlocked');
+    },
     onError: () => toast.error('Failed'),
   });
 
   const { register: goalReg, handleSubmit: goalSubmit, watch: goalWatch, setValue: goalSet, reset: goalReset, formState: { errors: goalErrors } } = useForm<GoalForm>({
     resolver: zodResolver(goalSchema), defaultValues: { color: '#6366f1' },
   });
+
+  const { register: editReg, handleSubmit: editSubmit, watch: editWatch, setValue: editSet, reset: editReset, formState: { errors: editErrors } } = useForm<GoalForm>({
+    resolver: zodResolver(goalSchema),
+  });
+
   const { register: contribReg, handleSubmit: contribSubmit, reset: contribReset, formState: { errors: contribErrors } } = useForm<ContribForm>({
     resolver: zodResolver(contribSchema),
   });
 
   const selColor = goalWatch('color');
+  const editColor = editWatch('color');
   const active = goals.filter((g: any) => !g.isCompleted);
   const completed = goals.filter((g: any) => g.isCompleted);
+
+  const openEdit = (goal: any) => {
+    editReset({
+      title: goal.title,
+      targetAmount: goal.targetAmount,
+      targetDate: goal.targetDate?.split('T')[0],
+      color: goal.color,
+    });
+    setEditGoal(goal);
+  };
 
   const GoalCard = ({ goal }: { goal: any }) => {
     const pct = Math.min(100, Math.round((goal.savedAmount / goal.targetAmount) * 100));
@@ -86,11 +139,14 @@ export default function GoalsPage() {
           </div>
           <div className="flex gap-1">
             {!goal.isCompleted && (
-              <button onClick={() => setContributeFor(goal)} className="btn-ghost p-1.5 text-brand-400 hover:text-brand-300">
+              <button onClick={() => setContributeFor(goal)} className="btn-ghost p-1.5 text-brand-400 hover:text-brand-300" title="Add contribution">
                 <PlusCircle size={15}/>
               </button>
             )}
-            <button onClick={() => { if(confirm('Delete goal?')) deleteGoal.mutate(goal._id); }} className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-red-400 hover:text-red-300 transition-opacity">
+            <button onClick={() => openEdit(goal)} className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-blue-400 hover:text-blue-300 transition-opacity" title="Edit goal">
+              <Pencil size={15}/>
+            </button>
+            <button onClick={() => { if(confirm('Delete goal? This will unlock all reserved funds.')) deleteGoal.mutate(goal._id); }} className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-red-400 hover:text-red-300 transition-opacity" title="Delete goal">
               <Trash2 size={15}/>
             </button>
           </div>
@@ -130,11 +186,15 @@ export default function GoalsPage() {
             <span className="text-emerald-400 text-sm font-medium">🎉 Goal Achieved!</span>
           </div>
         )}
-        {!goal.isCompleted && goal.savedAmount > 0 && (
-          <div className="mt-2 text-xs text-brand-400/70 flex items-center gap-1">
-            <span>🔒</span>
-            <span>{formatCurrency(goal.savedAmount, currency)} locked across accounts</span>
-          </div>
+
+        {goal.savedAmount > 0 && (
+          <button
+            onClick={() => setManageFor(goal)}
+            className="mt-2 w-full text-xs text-brand-400/80 hover:text-brand-300 flex items-center justify-center gap-1.5 py-1.5 rounded-lg hover:bg-brand-500/10 transition-colors"
+          >
+            <Lock size={11}/>
+            <span>{formatCurrency(goal.savedAmount, currency)} locked — manage</span>
+          </button>
         )}
       </div>
     );
@@ -221,6 +281,48 @@ export default function GoalsPage() {
         </div>
       )}
 
+      {/* Edit Goal Modal */}
+      {editGoal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditGoal(null)}/>
+          <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-white mb-5">Edit Goal</h2>
+            <form onSubmit={editSubmit(d => updateGoal.mutate({ id: editGoal._id, data: d }))} className="space-y-4">
+              <div>
+                <label className="label">Goal Title</label>
+                <input {...editReg('title')} className="input"/>
+                {editErrors.title && <p className="text-xs text-red-400 mt-1">{editErrors.title.message}</p>}
+              </div>
+              <div>
+                <label className="label">Target Amount</label>
+                <input {...editReg('targetAmount')} type="number" step="0.01" className="input font-mono"/>
+                {editErrors.targetAmount && <p className="text-xs text-red-400 mt-1">{editErrors.targetAmount.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">Note: changing this does not affect already-locked funds.</p>
+              </div>
+              <div>
+                <label className="label">Target Date</label>
+                <input {...editReg('targetDate')} type="date" className="input"/>
+                {editErrors.targetDate && <p className="text-xs text-red-400 mt-1">{editErrors.targetDate.message}</p>}
+              </div>
+              <div>
+                <label className="label">Color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => editSet('color', c)}
+                      className={cn('w-7 h-7 rounded-lg transition-all', editColor === c ? 'ring-2 ring-white/50 ring-offset-1 ring-offset-[#0d0d1a] scale-110' : '')}
+                      style={{ background: c }}/>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditGoal(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={updateGoal.isPending} className="btn-primary flex-1">{updateGoal.isPending ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Contribute Modal */}
       {contributeFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -254,6 +356,47 @@ export default function GoalsPage() {
                 <button type="submit" disabled={contribute.isPending} className="btn-primary flex-1">{contribute.isPending ? 'Saving…' : 'Add'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Locked Funds Modal */}
+      {manageFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setManageFor(null)}/>
+          <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up max-h-[80vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+              <Lock size={16} className="text-brand-400"/> Locked Funds
+            </h2>
+            <p className="text-muted text-sm mb-5">{manageFor.title} · {formatCurrency(manageFor.savedAmount, currency)} total locked</p>
+
+            <div className="space-y-2">
+              {contributions.map((c: any) => (
+                <div key={c._id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl group">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white">{c.accountId?.name || 'Account'}</div>
+                    <div className="text-xs text-gray-500">{formatDate(c.date)}{c.notes ? ` · ${c.notes}` : ''}</div>
+                  </div>
+                  <div className="text-sm font-mono text-brand-400">{formatCurrency(c.amount, currency)}</div>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Unlock ${formatCurrency(c.amount, currency)} back to ${c.accountId?.name}? This reduces the goal's saved amount.`)) {
+                        deleteContribution.mutate({ goalId: manageFor._id, contributionId: c._id });
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-amber-400 hover:text-amber-300 transition-all"
+                    title="Unlock these funds"
+                  >
+                    <Unlock size={14}/>
+                  </button>
+                </div>
+              ))}
+              {contributions.length === 0 && (
+                <p className="text-center text-muted text-sm py-6">No contributions yet</p>
+              )}
+            </div>
+
+            <button onClick={() => setManageFor(null)} className="w-full btn-secondary mt-5">Close</button>
           </div>
         </div>
       )}

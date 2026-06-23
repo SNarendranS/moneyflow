@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,29 +33,78 @@ const TYPES = [
   { value: 'investment', label: 'Investment', color: 'text-purple-400 border-purple-500/40 bg-purple-500/10' },
 ];
 
-export default function QuickAddModal({ onClose }: { onClose: () => void }) {
+interface QuickAddModalProps {
+  onClose: () => void;
+  editTransaction?: any; // pass an existing transaction object to edit it
+}
+
+export default function QuickAddModal({ onClose, editTransaction }: QuickAddModalProps) {
   const qc = useQueryClient();
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isExternal, setIsExternal] = useState(false);
+  const isEdit = !!editTransaction;
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    editTransaction?.tags?.map((t: any) => t._id || t) || []
+  );
+  const [isExternal, setIsExternal] = useState(!!editTransaction?.toExternal);
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsAPI.list().then(r => r.data.data) });
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: () => categoriesAPI.list().then(r => r.data.data) });
   const { data: tags } = useQuery({ queryKey: ['tags'], queryFn: () => tagsAPI.list().then(r => r.data.data) });
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
+    defaultValues: editTransaction ? {
+      type: editTransaction.type,
+      amount: editTransaction.amount,
+      date: editTransaction.date?.split('T')[0],
+      notes: editTransaction.notes || '',
+      accountId: editTransaction.accountId?._id || editTransaction.accountId || '',
+      categoryId: editTransaction.categoryId?._id || editTransaction.categoryId || '',
+      subCategoryId: editTransaction.subCategoryId?._id || editTransaction.subCategoryId || '',
+      fromAccountId: editTransaction.fromAccountId?._id || editTransaction.fromAccountId || '',
+      toAccountId: editTransaction.toAccountId?._id || editTransaction.toAccountId || '',
+      toExternal: editTransaction.toExternal || '',
+      investmentType: editTransaction.investmentType || '',
+      investmentName: editTransaction.investmentName || '',
+      incomeSource: editTransaction.incomeSource || '',
+    } : {
       type: 'expense',
       date: new Date().toISOString().split('T')[0],
     },
   });
+
+  // Re-sync form when switching which transaction is being edited,
+  // AND again once accounts/categories finish loading (selects need the
+  // option list present before they can reflect the saved value).
+  useEffect(() => {
+    if (editTransaction) {
+      reset({
+        type: editTransaction.type,
+        amount: editTransaction.amount,
+        date: editTransaction.date?.split('T')[0],
+        notes: editTransaction.notes || '',
+        accountId: editTransaction.accountId?._id || editTransaction.accountId || '',
+        categoryId: editTransaction.categoryId?._id || editTransaction.categoryId || '',
+        subCategoryId: editTransaction.subCategoryId?._id || editTransaction.subCategoryId || '',
+        fromAccountId: editTransaction.fromAccountId?._id || editTransaction.fromAccountId || '',
+        toAccountId: editTransaction.toAccountId?._id || editTransaction.toAccountId || '',
+        toExternal: editTransaction.toExternal || '',
+        investmentType: editTransaction.investmentType || '',
+        investmentName: editTransaction.investmentName || '',
+        incomeSource: editTransaction.incomeSource || '',
+      });
+      setSelectedTags(editTransaction.tags?.map((t: any) => t._id || t) || []);
+      setIsExternal(!!editTransaction.toExternal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTransaction?._id, accounts, categories]);
 
   const type = watch('type');
   const categoryId = watch('categoryId');
   const selectedCategory = categories?.find((c: any) => c._id === categoryId);
 
   const mutation = useMutation({
-    mutationFn: (data: any) => transactionsAPI.create(data),
+    mutationFn: (data: any) =>
+      isEdit ? transactionsAPI.update(editTransaction._id, data) : transactionsAPI.create(data),
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -64,15 +113,20 @@ export default function QuickAddModal({ onClose }: { onClose: () => void }) {
       if (goalWarning) {
         toast(goalWarning, { icon: '⚠️', duration: 8000, style: { background: '#7c2d12', color: '#fed7aa', border: '1px solid #ea580c', borderRadius: '12px', maxWidth: '420px' } });
       } else {
-        toast.success('Transaction added!');
+        toast.success(isEdit ? 'Transaction updated!' : 'Transaction added!');
       }
       onClose();
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to add transaction'),
+    onError: (err: any) => toast.error(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'add'} transaction`),
   });
 
   const onSubmit = (data: FormData) => {
-    mutation.mutate({ ...data, tags: selectedTags });
+    const payload: any = { ...data, tags: selectedTags };
+    // Drop empty-string optional fields so enums/ObjectIds never see ""
+    for (const key of Object.keys(payload)) {
+      if (payload[key] === '') delete payload[key];
+    }
+    mutation.mutate(payload);
   };
 
   return (
@@ -80,23 +134,25 @@ export default function QuickAddModal({ onClose }: { onClose: () => void }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-white">Add Transaction</h2>
+          <h2 className="text-lg font-semibold text-white">{isEdit ? 'Edit Transaction' : 'Add Transaction'}</h2>
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Type Selector */}
+          {/* Type Selector — locked during edit since changing type would require re-deriving balances */}
           <div className="grid grid-cols-4 gap-1.5">
             {TYPES.map(t => (
               <label key={t.value} className={cn(
-                'flex items-center justify-center py-2 rounded-xl border text-xs font-medium cursor-pointer transition-all',
-                type === t.value ? t.color : 'border-white/10 text-gray-500 hover:border-white/20'
+                'flex items-center justify-center py-2 rounded-xl border text-xs font-medium transition-all',
+                type === t.value ? t.color : 'border-white/10 text-gray-500 hover:border-white/20',
+                isEdit ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
               )}>
-                <input {...register('type')} type="radio" value={t.value} className="sr-only" />
+                <input {...register('type')} type="radio" value={t.value} className="sr-only" disabled={isEdit} />
                 {t.label}
               </label>
             ))}
           </div>
+          {isEdit && <p className="text-xs text-gray-500 -mt-2">Transaction type cannot be changed after creation. Delete and re-add if needed.</p>}
 
           {/* Amount */}
           <div>
@@ -231,7 +287,7 @@ export default function QuickAddModal({ onClose }: { onClose: () => void }) {
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={isSubmitting || mutation.isPending} className="btn-primary flex-1">
-              {mutation.isPending ? 'Saving…' : 'Add Transaction'}
+              {mutation.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Transaction'}
             </button>
           </div>
         </form>

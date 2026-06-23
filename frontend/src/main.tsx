@@ -14,6 +14,23 @@ const queryClient = new QueryClient({
   },
 });
 
+// Prevent scroll-wheel from changing the value of a focused number input.
+// Without this, scrolling the page while the cursor happens to be over a
+// number field silently increments/decrements it (e.g. 700 -> 700.99 -> 699.99).
+// We must call preventDefault on the wheel event itself (not just blur after
+// the fact), because the browser mutates the input's value during the same
+// event before a blur would ever fire.
+document.addEventListener(
+  'wheel',
+  (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') {
+      e.preventDefault();
+    }
+  },
+  { passive: false }
+);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

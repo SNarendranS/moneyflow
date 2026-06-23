@@ -26,6 +26,16 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
   } catch (err) { next(err); }
 };
 
+export const updateTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const tx = await txService.updateTransaction(req.user!.id, req.params.id, req.body);
+    sendSuccess(res, tx, 'Transaction updated');
+  } catch (err: any) {
+    if (err.message === 'Transaction not found') return sendError(res, err.message, 404);
+    next(err);
+  }
+};
+
 export const deleteTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await txService.deleteTransaction(req.user!.id, req.params.id);

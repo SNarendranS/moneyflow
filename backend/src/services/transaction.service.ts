@@ -117,6 +117,54 @@ export const getTransactionById = async (userId: string, id: string) => {
     .populate('accountId categoryId subCategoryId tags fromAccountId toAccountId');
 };
 
+export const updateTransaction = async (userId: string, id: string, data: any) => {
+  const OPTIONAL_ID_FIELDS = ['categoryId', 'subCategoryId', 'accountId', 'fromAccountId', 'toAccountId'];
+  const clean = { ...data };
+  for (const field of OPTIONAL_ID_FIELDS) {
+    if (clean[field] === '' || clean[field] === null) delete clean[field];
+  }
+  if (Array.isArray(clean.tags)) clean.tags = clean.tags.filter((t: string) => t !== '');
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const old = await Transaction.findOne({ _id: id, userId }).session(session);
+    if (!old) throw new Error('Transaction not found');
+
+    // 1. Reverse the OLD transaction's effect on balances
+    if (old.type === 'income' && old.accountId) {
+      await Account.findByIdAndUpdate(old.accountId, { $inc: { currentBalance: -old.amount } }, { session });
+    } else if ((old.type === 'expense' || old.type === 'investment') && old.accountId) {
+      await Account.findByIdAndUpdate(old.accountId, { $inc: { currentBalance: old.amount } }, { session });
+    } else if (old.type === 'transfer') {
+      if (old.fromAccountId) await Account.findByIdAndUpdate(old.fromAccountId, { $inc: { currentBalance: old.amount } }, { session });
+      if (old.toAccountId) await Account.findByIdAndUpdate(old.toAccountId, { $inc: { currentBalance: -old.amount } }, { session });
+    }
+
+    // 2. Apply the updates (note: type cannot be changed via edit, only amount/details)
+    Object.assign(old, clean);
+    await old.save({ session });
+
+    // 3. Re-apply the NEW (updated) transaction's effect on balances
+    if (old.type === 'income' && old.accountId) {
+      await Account.findByIdAndUpdate(old.accountId, { $inc: { currentBalance: old.amount } }, { session });
+    } else if ((old.type === 'expense' || old.type === 'investment') && old.accountId) {
+      await Account.findByIdAndUpdate(old.accountId, { $inc: { currentBalance: -old.amount } }, { session });
+    } else if (old.type === 'transfer') {
+      if (old.fromAccountId) await Account.findByIdAndUpdate(old.fromAccountId, { $inc: { currentBalance: -old.amount } }, { session });
+      if (old.toAccountId) await Account.findByIdAndUpdate(old.toAccountId, { $inc: { currentBalance: old.amount } }, { session });
+    }
+
+    await session.commitTransaction();
+    return Transaction.findById(id).populate('accountId categoryId subCategoryId tags fromAccountId toAccountId');
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+};
+
 export const deleteTransaction = async (userId: string, id: string) => {
   const session = await mongoose.startSession();
   session.startTransaction();

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoriesAPI } from '../services/api';
-import { Plus, Trash2, ChevronDown, ChevronRight, Tag } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Tag, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,17 +10,20 @@ import { cn } from '../utils';
 
 const catSchema = z.object({ name: z.string().min(1), icon: z.string().default('tag'), color: z.string().default('#6366f1') });
 const subSchema = z.object({ name: z.string().min(1), categoryId: z.string().min(1) });
+const subEditSchema = z.object({ name: z.string().min(1) });
 type CatForm = z.infer<typeof catSchema>;
 type SubForm = z.infer<typeof subSchema>;
+type SubEditForm = z.infer<typeof subEditSchema>;
 
 const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316','#84cc16'];
-const ICONS = ['tag','utensils','receipt','plane','shopping-bag','heart','film','users','trending-up','zap','home','car','music','book','coffee'];
 
 export default function CategoriesPage() {
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addSubFor, setAddSubFor] = useState<string | null>(null);
+  const [editCat, setEditCat] = useState<any>(null);
+  const [editSub, setEditSub] = useState<any>(null); // { _id, name, categoryId }
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -31,6 +34,12 @@ export default function CategoriesPage() {
     mutationFn: (d: CatForm) => categoriesAPI.create(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); toast.success('Category created'); setShowAdd(false); catReset(); },
     onError: () => toast.error('Failed to create'),
+  });
+
+  const updateCat = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: CatForm }) => categoriesAPI.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); toast.success('Category updated'); setEditCat(null); editCatReset(); },
+    onError: () => toast.error('Failed to update'),
   });
 
   const deleteCat = useMutation({
@@ -44,6 +53,12 @@ export default function CategoriesPage() {
     onError: () => toast.error('Failed to create'),
   });
 
+  const updateSub = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: SubEditForm }) => categoriesAPI.updateSub(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); toast.success('Subcategory updated'); setEditSub(null); },
+    onError: () => toast.error('Failed to update'),
+  });
+
   const deleteSub = useMutation({
     mutationFn: (id: string) => categoriesAPI.deleteSub(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); toast.success('Subcategory deleted'); },
@@ -53,12 +68,31 @@ export default function CategoriesPage() {
     resolver: zodResolver(catSchema), defaultValues: { color: '#6366f1', icon: 'tag' },
   });
 
+  const { register: editCatReg, handleSubmit: editCatSubmit, watch: editCatWatch, setValue: editCatSet, reset: editCatReset, formState: { errors: editCatErrors } } = useForm<CatForm>({
+    resolver: zodResolver(catSchema),
+  });
+
   const { register: subReg, handleSubmit: subSubmit, reset: subReset, formState: { errors: subErrors } } = useForm<SubForm>({
     resolver: zodResolver(subSchema),
   });
 
+  const { register: editSubReg, handleSubmit: editSubSubmit, reset: editSubReset, formState: { errors: editSubErrors } } = useForm<SubEditForm>({
+    resolver: zodResolver(subEditSchema),
+  });
+
   const selColor = catWatch('color');
+  const editSelColor = editCatWatch('color');
   const toggle = (id: string) => setExpanded(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+
+  const openEditCat = (cat: any) => {
+    editCatReset({ name: cat.name, icon: cat.icon, color: cat.color });
+    setEditCat(cat);
+  };
+
+  const openEditSub = (sub: any) => {
+    editSubReset({ name: sub.name });
+    setEditSub(sub);
+  };
 
   return (
     <div className="space-y-5">
@@ -83,6 +117,7 @@ export default function CategoriesPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={e => { e.stopPropagation(); setAddSubFor(cat._id); }} className="btn-ghost p-1.5 text-xs text-brand-400 hover:text-brand-300">+ Sub</button>
+                <button onClick={e => { e.stopPropagation(); openEditCat(cat); }} className="btn-ghost p-1.5 text-blue-400 hover:text-blue-300"><Pencil size={14}/></button>
                 {!cat.isDefault && (
                   <button onClick={e => { e.stopPropagation(); if(confirm('Delete?')) deleteCat.mutate(cat._id); }} className="btn-ghost p-1.5 text-red-400 hover:text-red-300"><Trash2 size={14}/></button>
                 )}
@@ -96,7 +131,8 @@ export default function CategoriesPage() {
                   {cat.subcategories.map((sub: any) => (
                     <div key={sub._id} className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 group">
                       <span className="text-sm text-gray-300">{sub.name}</span>
-                      <button onClick={() => { if(confirm('Delete subcategory?')) deleteSub.mutate(sub._id); }} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 ml-1 transition-opacity"><Trash2 size={12}/></button>
+                      <button onClick={() => openEditSub(sub)} className="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-blue-300 ml-1 transition-opacity"><Pencil size={12}/></button>
+                      <button onClick={() => { if(confirm('Delete subcategory?')) deleteSub.mutate(sub._id); }} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"><Trash2 size={12}/></button>
                     </div>
                   ))}
                 </div>
@@ -120,6 +156,7 @@ export default function CategoriesPage() {
         {categories.length === 0 && <div className="text-center py-16 text-muted">No categories yet</div>}
       </div>
 
+      {/* Add Category Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAdd(false)}/>
@@ -144,6 +181,58 @@ export default function CategoriesPage() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={createCat.isPending} className="btn-primary flex-1">{createCat.isPending ? 'Creating…' : 'Create'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {editCat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditCat(null)}/>
+          <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-white mb-5">Edit Category</h2>
+            <form onSubmit={editCatSubmit(d => updateCat.mutate({ id: editCat._id, data: d }))} className="space-y-4">
+              <div>
+                <label className="label">Name</label>
+                <input {...editCatReg('name')} className="input"/>
+                {editCatErrors.name && <p className="text-xs text-red-400 mt-1">{editCatErrors.name.message}</p>}
+              </div>
+              <div>
+                <label className="label">Color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => editCatSet('color', c)}
+                      className={cn('w-7 h-7 rounded-lg transition-all', editSelColor === c ? 'ring-2 ring-white/50 ring-offset-1 ring-offset-[#0d0d1a] scale-110' : '')}
+                      style={{ background: c }}/>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditCat(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={updateCat.isPending} className="btn-primary flex-1">{updateCat.isPending ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Subcategory Modal */}
+      {editSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditSub(null)}/>
+          <div className="relative z-10 w-full max-w-sm card p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-white mb-5">Edit Subcategory</h2>
+            <form onSubmit={editSubSubmit(d => updateSub.mutate({ id: editSub._id, data: d }))} className="space-y-4">
+              <div>
+                <label className="label">Name</label>
+                <input {...editSubReg('name')} className="input"/>
+                {editSubErrors.name && <p className="text-xs text-red-400 mt-1">{editSubErrors.name.message}</p>}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditSub(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={updateSub.isPending} className="btn-primary flex-1">{updateSub.isPending ? 'Saving…' : 'Save'}</button>
               </div>
             </form>
           </div>

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsAPI } from '../services/api';
 import { formatCurrency, formatDate, getTransactionColor, getTransactionBg, getTransactionSign } from '../utils';
 import { useAuth } from '../store/auth';
-import { Trash2, Plus, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, Filter, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 import QuickAddModal from '../components/transactions/QuickAddModal';
@@ -18,6 +18,7 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [editTx, setEditTx] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['transactions', { page, type: typeFilter }],
@@ -130,15 +131,23 @@ export default function TransactionsPage() {
                   {getTransactionSign(tx.type)}{formatCurrency(tx.amount, currency)}
                 </div>
 
-                {/* Delete */}
-                <button
-                  onClick={() => {
-                    if (confirm('Delete this transaction?')) deleteMutation.mutate(tx._id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {/* Edit + Delete */}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={() => setEditTx(tx)}
+                    className="btn-ghost p-1.5 text-brand-400 hover:text-brand-300 hover:bg-brand-500/10"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Delete this transaction?')) deleteMutation.mutate(tx._id);
+                    }}
+                    className="btn-ghost p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -171,6 +180,7 @@ export default function TransactionsPage() {
       )}
 
       {showAdd && <QuickAddModal onClose={() => setShowAdd(false)} />}
+      {editTx && <QuickAddModal onClose={() => setEditTx(null)} editTransaction={editTx} />}
     </div>
   );
 }

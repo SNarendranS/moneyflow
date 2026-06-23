@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { recurringAPI, recurringActionAPI, accountsAPI, categoriesAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils';
 import { useAuth } from '../store/auth';
-import { Plus, Trash2, RefreshCw, AlertCircle, Clock, Calendar, CheckCircle, BellOff } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, AlertCircle, Clock, Calendar, CheckCircle, BellOff, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,6 +42,7 @@ export default function RecurringPage() {
   const currency = user?.currency || 'INR';
   const [showAdd, setShowAdd] = useState(false);
   const [actionModal, setActionModal] = useState<any>(null); // the recurring item being actioned
+  const [editItem, setEditItem] = useState<any>(null); // the recurring item being edited
 
   const { data: recurring = [], isLoading } = useQuery({
     queryKey: ['recurring'],
@@ -61,6 +62,12 @@ export default function RecurringPage() {
   const create = useMutation({
     mutationFn: (d: FormData) => recurringAPI.create(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recurring'] }); toast.success('Recurring transaction created'); setShowAdd(false); reset(); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: FormData }) => recurringAPI.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recurring'] }); toast.success('Recurring transaction updated'); setEditItem(null); editReset(); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
@@ -97,6 +104,28 @@ export default function RecurringPage() {
     defaultValues: { transactionType: 'expense', frequencyType: 'monthly', nextDueDate: new Date().toISOString().split('T')[0] },
   });
 
+  const { register: editReg, handleSubmit: editSubmit, watch: editWatch, reset: editReset, formState: { errors: editErrors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  useEffect(() => {
+    if (editItem) {
+      editReset({
+        title: editItem.title,
+        amount: editItem.amount,
+        transactionType: editItem.transactionType,
+        frequencyType: editItem.frequencyType,
+        customDays: editItem.customDays,
+        nextDueDate: editItem.nextDueDate?.split('T')[0],
+        accountId: editItem.accountId?._id || editItem.accountId,
+        categoryId: editItem.categoryId?._id || editItem.categoryId || '',
+        notes: editItem.notes || '',
+      });
+    }
+  }, [editItem]);
+
+  const editFreqType = editWatch('frequencyType');
+
   const freqType = watch('frequencyType');
   const overdue  = recurring.filter((r: any) => r.status === 'overdue');
   const dueSoon  = recurring.filter((r: any) => r.status === 'due_soon');
@@ -122,9 +151,14 @@ export default function RecurringPage() {
               </div>
             </div>
           </div>
-          <button onClick={() => { if(confirm('Delete?')) del.mutate(r._id); }} className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-red-400">
-            <Trash2 size={14}/>
-          </button>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+            <button onClick={() => setEditItem(r)} className="btn-ghost p-1.5 text-brand-400">
+              <Pencil size={14}/>
+            </button>
+            <button onClick={() => { if(confirm('Delete?')) del.mutate(r._id); }} className="btn-ghost p-1.5 text-red-400">
+              <Trash2 size={14}/>
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
@@ -300,6 +334,83 @@ export default function RecurringPage() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={create.isPending} className="btn-primary flex-1">{create.isPending ? 'Saving…' : 'Create'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT MODAL ── */}
+      {editItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditItem(null)}/>
+          <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-white mb-5">Edit Recurring Transaction</h2>
+            <form onSubmit={editSubmit(d => update.mutate({ id: editItem._id, data: d }))} className="space-y-4">
+              <div>
+                <label className="label">Title</label>
+                <input {...editReg('title')} placeholder="e.g. WiFi Bill, SIP" className="input"/>
+                {editErrors.title && <p className="text-xs text-red-400 mt-1">{editErrors.title.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Amount</label>
+                  <input {...editReg('amount')} type="number" step="0.01" placeholder="0.00" className="input font-mono"/>
+                  {editErrors.amount && <p className="text-xs text-red-400 mt-1">{editErrors.amount.message}</p>}
+                </div>
+                <div>
+                  <label className="label">Type</label>
+                  <select {...editReg('transactionType')} className="input">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                    <option value="investment">Investment</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Frequency</label>
+                  <select {...editReg('frequencyType')} className="input">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="custom">Custom (X days)</option>
+                  </select>
+                </div>
+                {editFreqType === 'custom' && (
+                  <div>
+                    <label className="label">Every X days</label>
+                    <input {...editReg('customDays')} type="number" placeholder="e.g. 84" className="input"/>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="label">Next Due Date</label>
+                <input {...editReg('nextDueDate')} type="date" className="input"/>
+              </div>
+              <div>
+                <label className="label">Account</label>
+                <select {...editReg('accountId')} className="input">
+                  <option value="">Select account</option>
+                  {accounts.map((a: any) => <option key={a._id} value={a._id}>{a.name}</option>)}
+                </select>
+                {editErrors.accountId && <p className="text-xs text-red-400 mt-1">{editErrors.accountId.message}</p>}
+              </div>
+              <div>
+                <label className="label">Category (optional)</label>
+                <select {...editReg('categoryId')} className="input">
+                  <option value="">None</option>
+                  {categories.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Notes</label>
+                <input {...editReg('notes')} placeholder="Optional note" className="input"/>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditItem(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={update.isPending} className="btn-primary flex-1">{update.isPending ? 'Saving…' : 'Save Changes'}</button>
               </div>
             </form>
           </div>

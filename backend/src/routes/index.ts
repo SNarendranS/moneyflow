@@ -12,15 +12,10 @@ import {
   createAccountSchema, updateAccountSchema, createCategorySchema, createSubcategorySchema,
   createTagSchema, createGoalSchema, goalContributionSchema, createRecurringSchema,
 } from '../validators/index.validator';
-import { createTransactionSchema } from '../validators/transaction.validator';
+import { createTransactionSchema, updateTransactionSchema } from '../validators/transaction.validator';
 
 const router = Router();
-router.get('/health', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'API route working'
-  });
-});
+
 // ── AUTH ──────────────────────────────────────────────────
 router.post('/auth/register', validate(registerSchema), authCtrl.register);
 router.post('/auth/login', validate(loginSchema), authCtrl.login);
@@ -43,12 +38,14 @@ router.post('/categories', authenticate, validate(createCategorySchema), miscCtr
 router.put('/categories/:id', authenticate, miscCtrl.updateCategory);
 router.delete('/categories/:id', authenticate, miscCtrl.deleteCategory);
 router.post('/subcategories', authenticate, validate(createSubcategorySchema), miscCtrl.createSubcategory);
+router.put('/subcategories/:id', authenticate, miscCtrl.updateSubcategory);
 router.delete('/subcategories/:id', authenticate, miscCtrl.deleteSubcategory);
 
 // ── TRANSACTIONS ──────────────────────────────────────────
 router.get('/transactions', authenticate, txCtrl.getTransactions);
 router.post('/transactions', authenticate, validate(createTransactionSchema), txCtrl.createTransaction);
 router.get('/transactions/:id', authenticate, txCtrl.getTransaction);
+router.put('/transactions/:id', authenticate, validate(updateTransactionSchema), txCtrl.updateTransaction);
 router.delete('/transactions/:id', authenticate, txCtrl.deleteTransaction);
 
 // ── TAGS ─────────────────────────────────────────────────
@@ -63,6 +60,7 @@ router.put('/goals/:id', authenticate, miscCtrl.updateGoal);
 router.delete('/goals/:id', authenticate, miscCtrl.deleteGoal);
 router.post('/goals/:id/contribute', authenticate, validate(goalContributionSchema), miscCtrl.addGoalContribution);
 router.get('/goals/:id/contributions', authenticate, miscCtrl.getGoalContributions);
+router.delete('/goals/:id/contributions/:contributionId', authenticate, miscCtrl.deleteGoalContribution);
 
 // ── RECURRING ────────────────────────────────────────────
 router.get('/recurring', authenticate, miscCtrl.getRecurring);

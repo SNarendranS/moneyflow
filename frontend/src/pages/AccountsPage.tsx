@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountsAPI } from '../services/api';
 import { formatCurrency } from '../utils';
 import { useAuth } from '../store/auth';
-import { Plus, Archive, Wallet, PiggyBank, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { Plus, Archive, Wallet, PiggyBank, CreditCard, Banknote, Smartphone, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,12 @@ const schema = z.object({
   openingBalance: z.coerce.number().default(0),
   color: z.string().default('#6366f1'),
 });
+const editSchema = z.object({
+  name: z.string().min(1, 'Name required'),
+  color: z.string().default('#6366f1'),
+});
 type FormData = z.infer<typeof schema>;
+type EditFormData = z.infer<typeof editSchema>;
 
 const ACCOUNT_ICONS: Record<string, any> = {
   salary: Banknote,
@@ -33,6 +38,7 @@ export default function AccountsPage() {
   const qc = useQueryClient();
   const currency = user?.currency || 'INR';
   const [showAdd, setShowAdd] = useState(false);
+  const [editAccount, setEditAccount] = useState<any>(null);
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ['accounts'],
@@ -50,6 +56,18 @@ export default function AccountsPage() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: EditFormData }) => accountsAPI.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Account updated!');
+      setEditAccount(null);
+      editReset();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
   const archiveMutation = useMutation({
     mutationFn: (id: string) => accountsAPI.archive(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['accounts'] }); toast.success('Account archived'); },
@@ -60,9 +78,19 @@ export default function AccountsPage() {
     defaultValues: { type: 'savings', color: '#6366f1' },
   });
 
+  const { register: editReg, handleSubmit: editSubmit, watch: editWatch, setValue: editSet, reset: editReset, formState: { errors: editErrors } } = useForm<EditFormData>({
+    resolver: zodResolver(editSchema),
+  });
+
   const selectedColor = watch('color');
+  const editColor = editWatch('color');
   const totalBalance = accounts.reduce((sum: number, a: any) =>
     a.type === 'credit_card' ? sum - a.currentBalance : sum + a.currentBalance, 0);
+
+  const openEdit = (acc: any) => {
+    editReset({ name: acc.name, color: acc.color });
+    setEditAccount(acc);
+  };
 
   return (
     <div className="space-y-5">
@@ -96,13 +124,22 @@ export default function AccountsPage() {
                       <div className="text-xs text-gray-500 capitalize">{acc.type.replace('_', ' ')}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { if (confirm('Archive this account?')) archiveMutation.mutate(acc._id); }}
-                    className="opacity-0 group-hover:opacity-100 btn-ghost p-1.5 text-gray-500 hover:text-amber-400"
-                    title="Archive"
-                  >
-                    <Archive size={15} />
-                  </button>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEdit(acc)}
+                      className="btn-ghost p-1.5 text-blue-400 hover:text-blue-300"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => { if (confirm('Archive this account?')) archiveMutation.mutate(acc._id); }}
+                      className="btn-ghost p-1.5 text-gray-500 hover:text-amber-400"
+                      title="Archive"
+                    >
+                      <Archive size={15} />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-4">
                   <div className="text-xs text-gray-500 mb-1">Current Balance</div>
@@ -178,6 +215,43 @@ export default function AccountsPage() {
                 <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={createMutation.isPending} className="btn-primary flex-1">
                   {createMutation.isPending ? 'Creating…' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditAccount(null)} />
+          <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-white mb-5">Edit Account</h2>
+            <form onSubmit={editSubmit(d => updateMutation.mutate({ id: editAccount._id, data: d }))} className="space-y-4">
+              <div>
+                <label className="label">Account Name</label>
+                <input {...editReg('name')} className="input" />
+                {editErrors.name && <p className="text-xs text-red-400 mt-1">{editErrors.name.message}</p>}
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 text-xs text-gray-500">
+                Account type and opening balance can't be changed after creation — they're fixed at the time of setup.
+              </div>
+              <div>
+                <label className="label">Color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => editSet('color', c)}
+                      className={cn('w-7 h-7 rounded-lg transition-all', editColor === c ? 'ring-2 ring-white/50 ring-offset-2 ring-offset-[#0d0d1a] scale-110' : '')}
+                      style={{ background: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditAccount(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={updateMutation.isPending} className="btn-primary flex-1">
+                  {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>

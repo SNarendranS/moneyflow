@@ -51,6 +51,14 @@ export const createSubcategory = async (req: AuthRequest, res: Response, next: N
   } catch (err) { next(err); }
 };
 
+export const updateSubcategory = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const sub = await Subcategory.findOneAndUpdate({ _id: req.params.id, userId: req.user!.id }, req.body, { new: true });
+    if (!sub) return sendError(res, 'Subcategory not found', 404);
+    sendSuccess(res, sub, 'Subcategory updated');
+  } catch (err) { next(err); }
+};
+
 export const deleteSubcategory = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await Subcategory.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
@@ -105,9 +113,17 @@ export const updateGoal = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const deleteGoal = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const AccountModel = (await import('../models/Account')).default;
+    const contributions = await GoalContribution.find({ goalId: req.params.id, userId: req.user!.id });
+
+    // Unlock all funds tied to this goal across whichever accounts they came from
+    for (const c of contributions) {
+      await AccountModel.findByIdAndUpdate(c.accountId, { $inc: { lockedAmount: -c.amount } });
+    }
+
     await Goal.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
     await GoalContribution.deleteMany({ goalId: req.params.id });
-    sendSuccess(res, null, 'Goal deleted');
+    sendSuccess(res, null, 'Goal deleted and locked funds released');
   } catch (err) { next(err); }
 };
 
@@ -143,8 +159,34 @@ export const addGoalContribution = async (req: AuthRequest, res: Response, next:
 
 export const getGoalContributions = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const contributions = await GoalContribution.find({ goalId: req.params.id, userId: req.user!.id }).sort({ date: -1 });
+    const contributions = await GoalContribution.find({ goalId: req.params.id, userId: req.user!.id })
+      .populate('accountId', 'name color icon')
+      .sort({ date: -1 });
     sendSuccess(res, contributions);
+  } catch (err) { next(err); }
+};
+
+export const deleteGoalContribution = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const contribution = await GoalContribution.findOne({ _id: req.params.contributionId, userId: req.user!.id });
+    if (!contribution) return sendError(res, 'Contribution not found', 404);
+
+    const goal = await Goal.findOne({ _id: contribution.goalId, userId: req.user!.id });
+    if (!goal) return sendError(res, 'Goal not found', 404);
+
+    const AccountModel = (await import('../models/Account')).default;
+
+    // Unlock the funds in the account
+    await AccountModel.findByIdAndUpdate(contribution.accountId, { $inc: { lockedAmount: -contribution.amount } });
+
+    // Reduce the goal's saved amount
+    goal.savedAmount = Math.max(0, goal.savedAmount - contribution.amount);
+    goal.isCompleted = goal.savedAmount >= goal.targetAmount;
+    await goal.save();
+
+    await GoalContribution.deleteOne({ _id: req.params.contributionId });
+
+    sendSuccess(res, { goal }, 'Contribution removed and funds unlocked');
   } catch (err) { next(err); }
 };
 

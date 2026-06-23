@@ -91,6 +91,7 @@ export const categoriesAPI = {
   update: (id: string, data: any) => api.put(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
   createSub: (data: any) => api.post('/subcategories', data),
+  updateSub: (id: string, data: any) => api.put(`/subcategories/${id}`, data),
   deleteSub: (id: string) => api.delete(`/subcategories/${id}`),
 };
 
@@ -98,6 +99,7 @@ export const transactionsAPI = {
   list: (params?: any) => api.get('/transactions', { params }),
   create: (data: any) => api.post('/transactions', data),
   get: (id: string) => api.get(`/transactions/${id}`),
+  update: (id: string, data: any) => api.put(`/transactions/${id}`, data),
   delete: (id: string) => api.delete(`/transactions/${id}`),
 };
 
@@ -114,6 +116,7 @@ export const goalsAPI = {
   delete: (id: string) => api.delete(`/goals/${id}`),
   contribute: (id: string, data: any) => api.post(`/goals/${id}/contribute`, data),
   contributions: (id: string) => api.get(`/goals/${id}/contributions`),
+  deleteContribution: (goalId: string, contributionId: string) => api.delete(`/goals/${goalId}/contributions/${contributionId}`),
 };
 
 export const recurringActionAPI = {
