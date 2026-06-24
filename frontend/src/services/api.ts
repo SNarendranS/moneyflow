@@ -138,6 +138,12 @@ export const analyticsAPI = {
   savings: (months?: number) => api.get('/analytics/savings', { params: { months } }),
   insights: () => api.get('/analytics/insights'),
   family: () => api.get('/analytics/family'),
+  subcategories: (params?: { categoryId?: string; startDate?: string; endDate?: string }) =>
+    api.get('/analytics/subcategories', { params }),
+  investments: (months?: number) => api.get('/analytics/investments', { params: { months } }),
+  goals: () => api.get('/analytics/goals'),
+  accounts: () => api.get('/analytics/accounts'),
+  lending: () => api.get('/analytics/lending'),
 };
 
 export const lendingAPI = {

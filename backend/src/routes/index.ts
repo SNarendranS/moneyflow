@@ -87,6 +87,11 @@ router.get('/analytics/categories', authenticate, miscCtrl.getCategoryBreakdown)
 router.get('/analytics/savings', authenticate, miscCtrl.getSavingsTrend);
 router.get('/analytics/insights', authenticate, miscCtrl.getInsights);
 router.get('/analytics/family', authenticate, miscCtrl.getFamilySupport);
+router.get('/analytics/subcategories', authenticate, miscCtrl.getSubcategoryBreakdown);
+router.get('/analytics/investments', authenticate, miscCtrl.getInvestmentTrend);
+router.get('/analytics/goals', authenticate, miscCtrl.getGoalsAnalytics);
+router.get('/analytics/accounts', authenticate, miscCtrl.getAccountDistribution);
+router.get('/analytics/lending', authenticate, miscCtrl.getLendingAnalytics);
 
 // ── NOTIFICATIONS ─────────────────────────────────────────
 router.get('/notifications', authenticate, miscCtrl.getNotifications);

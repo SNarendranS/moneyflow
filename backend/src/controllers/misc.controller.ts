@@ -400,6 +400,43 @@ export const getFamilySupport = async (req: AuthRequest, res: Response, next: Ne
   } catch (err) { next(err); }
 };
 
+export const getSubcategoryBreakdown = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { categoryId, startDate, endDate } = req.query as any;
+    const data = await analyticsService.getSubcategoryBreakdown(req.user!.id, categoryId, startDate, endDate);
+    sendSuccess(res, data);
+  } catch (err) { next(err); }
+};
+
+export const getInvestmentTrend = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const months = parseInt((req.query.months as string) || '6');
+    const data = await analyticsService.getInvestmentTrend(req.user!.id, months);
+    sendSuccess(res, data);
+  } catch (err) { next(err); }
+};
+
+export const getGoalsAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const data = await analyticsService.getGoalsAnalytics(req.user!.id);
+    sendSuccess(res, data);
+  } catch (err) { next(err); }
+};
+
+export const getAccountDistribution = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const data = await analyticsService.getAccountDistribution(req.user!.id);
+    sendSuccess(res, data);
+  } catch (err) { next(err); }
+};
+
+export const getLendingAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const data = await analyticsService.getLendingAnalytics(req.user!.id);
+    sendSuccess(res, data);
+  } catch (err) { next(err); }
+};
+
 // ── NOTIFICATIONS ──────────────────────────────────────────
 export const getNotifications = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
