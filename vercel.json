@@ -13,14 +13,22 @@
       "use": "@vercel/node"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "/backend/api/index.ts"
+      "src": "/api/(.*)",
+      "dest": "backend/api/index.ts"
     },
     {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
+      "src": "/assets/(.*)",
+      "dest": "frontend/assets/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "frontend/favicon.ico"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/index.html"
     }
   ]
 }
