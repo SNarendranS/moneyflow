@@ -100,17 +100,26 @@ export default function TransactionsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white truncate">
                     {tx.type === 'expense' && (tx.categoryId?.name || 'Expense')}
-                    {tx.type === 'income' && (tx.incomeSource || 'Income')}
+                    {tx.type === 'income' && (tx.categoryId?.name || tx.incomeSource || 'Income')}
                     {tx.type === 'transfer' && (
                       tx.toExternal
                         ? `To ${tx.toExternal}`
                         : `${tx.fromAccountId?.name || '?'} → ${tx.toAccountId?.name || '?'}`
                     )}
-                    {tx.type === 'investment' && (tx.investmentName || tx.investmentType || 'Investment')}
+                    {tx.type === 'investment' && (tx.categoryId?.name || tx.investmentName || tx.investmentType || 'Investment')}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-gray-500">{formatDate(tx.date)}</span>
                     {tx.accountId && <span className="text-xs text-gray-600">· {tx.accountId.name}</span>}
+                    {tx.type === 'income' && tx.categoryId && tx.incomeSource && (
+                      <span className="text-xs text-emerald-400/80 truncate max-w-32">· {tx.incomeSource}</span>
+                    )}
+                    {tx.type === 'investment' && tx.categoryId && tx.investmentName && (
+                      <span className="text-xs text-purple-400/80 truncate max-w-32">· {tx.investmentName}</span>
+                    )}
+                    {tx.subCategoryId && (
+                      <span className="text-xs text-gray-500 truncate max-w-28">· {tx.subCategoryId.name}</span>
+                    )}
                     {tx.notes && <span className="text-xs text-gray-600 truncate max-w-32">· {tx.notes}</span>}
                   </div>
                 </div>

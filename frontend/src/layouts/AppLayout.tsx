@@ -111,7 +111,7 @@ export default function AppLayout() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="flex-shrink-0 h-14 flex items-center gap-3 px-4 border-b border-white/5 bg-[#0a0a14]/80 backdrop-blur-md relative z-30">
+        <header className="flex-shrink-0 h-14 mt-4 flex items-center gap-3 px-4 border-b border-white/5 bg-[#0a0a14]/80 backdrop-blur-md relative z-30">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden btn-ghost p-2">
             <Menu size={20} />
           </button>

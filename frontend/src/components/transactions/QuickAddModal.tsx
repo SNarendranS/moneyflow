@@ -101,6 +101,11 @@ export default function QuickAddModal({ onClose, editTransaction }: QuickAddModa
   const type = watch('type');
   const categoryId = watch('categoryId');
   const selectedCategory = categories?.find((c: any) => c._id === categoryId);
+  const filteredCategories = categories?.filter((c: any) => {
+    if (type === 'income') return c.type === 'income';
+    if (type === 'investment') return c.type === 'investment';
+    return (c.type || 'expense') === 'expense';
+  });
 
   const mutation = useMutation({
     mutationFn: (data: any) =>
@@ -132,7 +137,7 @@ export default function QuickAddModal({ onClose, editTransaction }: QuickAddModa
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-md bg-[#131326] border border-white/10 rounded-2xl p-6 animate-slide-up max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/80 ring-1 ring-white/5">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-white">{isEdit ? 'Edit Transaction' : 'Add Transaction'}</h2>
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={18} /></button>
@@ -184,7 +189,7 @@ export default function QuickAddModal({ onClose, editTransaction }: QuickAddModa
                 <label className="label">Category</label>
                 <select {...register('categoryId')} className="input">
                   <option value="">Select category</option>
-                  {categories?.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {filteredCategories?.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
                 </select>
               </div>
               {selectedCategory?.subcategories?.length > 0 && (
@@ -200,26 +205,60 @@ export default function QuickAddModal({ onClose, editTransaction }: QuickAddModa
           )}
 
           {type === 'income' && (
-            <div>
-              <label className="label">Source</label>
-              <input {...register('incomeSource')} placeholder="e.g. Salary, Freelance" className="input" />
-            </div>
+            <>
+              <div>
+                <label className="label">Income Category</label>
+                <select {...register('categoryId')} className="input">
+                  <option value="">Select category</option>
+                  {filteredCategories?.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              {selectedCategory?.subcategories?.length > 0 && (
+                <div>
+                  <label className="label">Subcategory</label>
+                  <select {...register('subCategoryId')} className="input">
+                    <option value="">Select subcategory</option>
+                    {selectedCategory.subcategories.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="label">Source / Payer note (optional)</label>
+                <input {...register('incomeSource')} placeholder="e.g. Salary, Client name, Freelance" className="input" />
+              </div>
+            </>
           )}
 
           {type === 'investment' && (
             <>
               <div>
+                <label className="label">Investment Category</label>
+                <select {...register('categoryId')} className="input">
+                  <option value="">Select category</option>
+                  {filteredCategories?.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              {selectedCategory?.subcategories?.length > 0 && (
+                <div>
+                  <label className="label">Subcategory</label>
+                  <select {...register('subCategoryId')} className="input">
+                    <option value="">Select subcategory</option>
+                    {selectedCategory.subcategories.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="label">Investment Name (optional)</label>
+                <input {...register('investmentName')} placeholder="e.g. Nifty 50 SIP, HDFC Bank" className="input" />
+              </div>
+              <div>
                 <label className="label">Investment Type</label>
                 <select {...register('investmentType')} className="input">
-                  <option value="">Select type</option>
+                  <option value="">Select type (optional)</option>
                   {['sip', 'mutual_fund', 'stock', 'fd', 'other'].map(t => (
                     <option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="label">Investment Name</label>
-                <input {...register('investmentName')} placeholder="e.g. Nifty 50 SIP" className="input" />
               </div>
             </>
           )}

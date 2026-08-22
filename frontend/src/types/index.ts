@@ -21,8 +21,10 @@ export interface Account {
 export interface Category {
   _id: string;
   name: string;
+  type?: 'expense' | 'income' | 'investment';
   icon: string;
   color: string;
+  isDefault?: boolean;
   subcategories?: Subcategory[];
 }
 

@@ -17,6 +17,7 @@ export const updateAccountSchema = z.object({
 
 export const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
+  type: z.enum(['expense', 'income', 'investment']).optional().default('expense'),
   icon: z.string().optional().default('tag'),
   color: z.string().optional().default('#6366f1'),
 });

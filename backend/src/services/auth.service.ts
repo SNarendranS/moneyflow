@@ -7,14 +7,29 @@ import { Subcategory } from '../models/Category';
 import Account from '../models/Account';
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Food', icon: 'utensils', color: '#f59e0b', subcategories: ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Outside Food', 'Home Food'] },
-  { name: 'Bills', icon: 'receipt', color: '#ef4444', subcategories: ['WiFi', 'Mobile Recharge', 'Electricity', 'Water', 'Gas'] },
-  { name: 'Travel', icon: 'plane', color: '#3b82f6', subcategories: ['Flight', 'Hotel', 'Transport', 'Fuel'] },
-  { name: 'Shopping', icon: 'shopping-bag', color: '#8b5cf6', subcategories: ['Clothing', 'Electronics', 'Groceries', 'Online'] },
-  { name: 'Healthcare', icon: 'heart', color: '#ec4899', subcategories: ['Medicine', 'Doctor', 'Hospital'] },
-  { name: 'Entertainment', icon: 'film', color: '#f97316', subcategories: ['Movies', 'Subscriptions', 'Games'] },
-  { name: 'Family Support', icon: 'users', color: '#10b981', subcategories: ['Mother', 'Father', 'Sibling'] },
-  { name: 'Investment', icon: 'trending-up', color: '#06b6d4', subcategories: ['SIP', 'Mutual Fund', 'Stock', 'FD'] },
+  // Expense Categories
+  { name: 'Food', type: 'expense', icon: 'utensils', color: '#f59e0b', subcategories: ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Outside Food', 'Home Food'] },
+  { name: 'Bills', type: 'expense', icon: 'receipt', color: '#ef4444', subcategories: ['WiFi', 'Mobile Recharge', 'Electricity', 'Water', 'Gas'] },
+  { name: 'Travel', type: 'expense', icon: 'plane', color: '#3b82f6', subcategories: ['Flight', 'Hotel', 'Transport', 'Fuel'] },
+  { name: 'Shopping', type: 'expense', icon: 'shopping-bag', color: '#8b5cf6', subcategories: ['Clothing', 'Electronics', 'Groceries', 'Online'] },
+  { name: 'Healthcare', type: 'expense', icon: 'heart', color: '#ec4899', subcategories: ['Medicine', 'Doctor', 'Hospital'] },
+  { name: 'Entertainment', type: 'expense', icon: 'film', color: '#f97316', subcategories: ['Movies', 'Subscriptions', 'Games'] },
+  { name: 'Family Support', type: 'expense', icon: 'users', color: '#10b981', subcategories: ['Mother', 'Father', 'Sibling'] },
+
+  // Income Categories
+  { name: 'Salary', type: 'income', icon: 'briefcase', color: '#10b981', subcategories: ['Monthly Salary', 'Bonus', 'Overtime', 'Incentives'] },
+  { name: 'Freelance', type: 'income', icon: 'laptop', color: '#06b6d4', subcategories: ['Client Work', 'Consulting', 'Projects'] },
+  { name: 'Business', type: 'income', icon: 'store', color: '#3b82f6', subcategories: ['Revenue', 'Profit Share', 'Services'] },
+  { name: 'Investments & Returns', type: 'income', icon: 'trending-up', color: '#8b5cf6', subcategories: ['Dividends', 'Interest', 'Capital Gains', 'Rental Income'] },
+  { name: 'Other Income', type: 'income', icon: 'gift', color: '#f59e0b', subcategories: ['Gift', 'Cashback', 'Refund', 'Reimbursement'] },
+
+  // Investment Categories
+  { name: 'Mutual Funds', type: 'investment', icon: 'pie-chart', color: '#8b5cf6', subcategories: ['Equity MF', 'Debt MF', 'Hybrid MF', 'Index Fund'] },
+  { name: 'SIP', type: 'investment', icon: 'refresh-cw', color: '#06b6d4', subcategories: ['Monthly SIP', 'Top-up SIP', 'Flexi SIP'] },
+  { name: 'Stocks & Equity', type: 'investment', icon: 'trending-up', color: '#10b981', subcategories: ['Large Cap', 'Mid Cap', 'Small Cap', 'US Stocks'] },
+  { name: 'Fixed Deposits (FD/RD)', type: 'investment', icon: 'landmark', color: '#f59e0b', subcategories: ['Bank FD', 'Corporate FD', 'RD', 'PPF'] },
+  { name: 'Gold & Commodities', type: 'investment', icon: 'coins', color: '#eab308', subcategories: ['Digital Gold', 'Sovereign Gold Bonds', 'Physical Gold', 'Silver'] },
+  { name: 'Real Estate & Other', type: 'investment', icon: 'home', color: '#ec4899', subcategories: ['Property', 'REITs', 'P2P Lending', 'Crypto'] },
 ];
 
 export const seedUserDefaults = async (userId: string) => {
@@ -22,6 +37,7 @@ export const seedUserDefaults = async (userId: string) => {
     const category = await Category.create({
       userId,
       name: cat.name,
+      type: cat.type,
       icon: cat.icon,
       color: cat.color,
       isDefault: true,

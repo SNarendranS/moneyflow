@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface ICategory extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
+  type: 'expense' | 'income' | 'investment';
   icon: string;
   color: string;
   isArchived: boolean;
@@ -15,6 +16,11 @@ const categorySchema = new Schema<ICategory>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true, trim: true },
+    type: {
+      type: String,
+      enum: ['expense', 'income', 'investment'],
+      default: 'expense',
+    },
     icon: { type: String, default: 'tag' },
     color: { type: String, default: '#6366f1' },
     isArchived: { type: Boolean, default: false },
@@ -23,6 +29,7 @@ const categorySchema = new Schema<ICategory>(
   { timestamps: true }
 );
 
+categorySchema.index({ userId: 1, type: 1, isArchived: 1 });
 categorySchema.index({ userId: 1, isArchived: 1 });
 
 export const Category = mongoose.model<ICategory>('Category', categorySchema);

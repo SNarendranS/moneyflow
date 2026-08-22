@@ -11,10 +11,19 @@ import { sendSuccess, sendError } from '../utils/response';
 // ── CATEGORIES ──────────────────────────────────────────────
 export const getCategories = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const categories = await Category.find({ userId: req.user!.id, isArchived: false }).sort({ name: 1 });
+    const filter: any = { userId: req.user!.id, isArchived: false };
+    if (req.query.type) {
+      if (req.query.type === 'expense') {
+        filter.$or = [{ type: 'expense' }, { type: { $exists: false } }, { type: null }];
+      } else {
+        filter.type = req.query.type;
+      }
+    }
+    const categories = await Category.find(filter).sort({ name: 1 });
     const subcategories = await Subcategory.find({ userId: req.user!.id });
     const withSubs = categories.map((c: any) => ({
       ...c.toObject(),
+      type: c.type || 'expense',
       subcategories: subcategories.filter((s: any) => s.categoryId.toString() === c._id.toString()),
     }));
     sendSuccess(res, withSubs);
@@ -23,7 +32,11 @@ export const getCategories = async (req: AuthRequest, res: Response, next: NextF
 
 export const createCategory = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const cat = await Category.create({ ...req.body, userId: req.user!.id });
+    const cat = await Category.create({
+      ...req.body,
+      type: req.body.type || 'expense',
+      userId: req.user!.id,
+    });
     sendSuccess(res, cat, 'Category created', 201);
   } catch (err) { next(err); }
 };

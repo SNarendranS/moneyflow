@@ -86,7 +86,7 @@ export const accountsAPI = {
 };
 
 export const categoriesAPI = {
-  list: () => api.get('/categories'),
+  list: (params?: { type?: string }) => api.get('/categories', { params }),
   create: (data: any) => api.post('/categories', data),
   update: (id: string, data: any) => api.put(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
