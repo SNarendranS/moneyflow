@@ -159,6 +159,8 @@ export const notificationsAPI = {
   list: () => api.get('/notifications'),
   markRead: (id: string) => api.patch(`/notifications/${id}/read`),
   markAllRead: () => api.patch('/notifications/read-all'),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
+  clearAll: () => api.delete('/notifications/clear-all'),
 };
 
 export const searchAPI = {

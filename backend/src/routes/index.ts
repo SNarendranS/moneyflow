@@ -95,8 +95,10 @@ router.get('/analytics/lending', authenticate, miscCtrl.getLendingAnalytics);
 
 // ── NOTIFICATIONS ─────────────────────────────────────────
 router.get('/notifications', authenticate, miscCtrl.getNotifications);
-router.patch('/notifications/:id/read', authenticate, miscCtrl.markNotificationRead);
 router.patch('/notifications/read-all', authenticate, miscCtrl.markAllNotificationsRead);
+router.patch('/notifications/:id/read', authenticate, miscCtrl.markNotificationRead);
+router.delete('/notifications/clear-all', authenticate, miscCtrl.clearAllNotifications);
+router.delete('/notifications/:id', authenticate, miscCtrl.deleteNotification);
 
 // ── SEARCH ───────────────────────────────────────────────
 router.get('/search', authenticate, miscCtrl.globalSearch);

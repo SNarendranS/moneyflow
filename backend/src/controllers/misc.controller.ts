@@ -235,7 +235,7 @@ export const getRecurring = async (req: AuthRequest, res: Response, next: NextFu
           userId: req.user!.id,
           relatedId: r._id,
           relatedModel: 'RecurringTransaction',
-          createdAt: { $gte: startOfToday },
+          isRead: false,
         });
         if (exists) continue;
 
@@ -471,6 +471,21 @@ export const markAllNotificationsRead = async (req: AuthRequest, res: Response, 
   try {
     await Notification.updateMany({ userId: req.user!.id, isRead: false }, { isRead: true });
     sendSuccess(res, null, 'All notifications marked as read');
+  } catch (err) { next(err); }
+};
+
+export const deleteNotification = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const deleted = await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
+    if (!deleted) return sendError(res, 'Notification not found', 404);
+    sendSuccess(res, null, 'Notification deleted');
+  } catch (err) { next(err); }
+};
+
+export const clearAllNotifications = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await Notification.deleteMany({ userId: req.user!.id });
+    sendSuccess(res, null, 'All notifications cleared');
   } catch (err) { next(err); }
 };
 
