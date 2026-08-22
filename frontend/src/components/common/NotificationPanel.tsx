@@ -60,50 +60,48 @@ export default function NotificationPanel() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 card overflow-hidden z-50 animate-fade-in shadow-2xl">
-          <div className="flex items-center justify-between p-3.5 border-b border-white/10">
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#131326] border border-white/10 rounded-2xl overflow-hidden z-50 animate-fade-in shadow-2xl shadow-black/80 ring-1 ring-white/5">
+          <div className="flex items-center justify-between p-3.5 border-b border-white/10 bg-[#181830]">
             <h3 className="font-semibold text-white text-sm">Notifications</h3>
             {unread.length > 0 && (
               <button
                 onClick={() => markAllRead.mutate()}
-                className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1"
+                className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1 font-medium"
               >
                 <CheckCheck size={13} /> Mark all read
               </button>
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
             {notifications.length === 0 ? (
-              <div className="text-center py-10 text-muted text-sm">No notifications yet</div>
+              <div className="text-center py-10 text-gray-400 text-sm">No notifications yet</div>
             ) : (
-              <div className="divide-y divide-white/5">
-                {notifications.map((n: any) => {
-                  const Icon = TYPE_ICON[n.type] || Bell;
-                  return (
-                    <button
-                      key={n._id}
-                      onClick={() => !n.isRead && markRead.mutate(n._id)}
-                      className={cn(
-                        'w-full flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-colors',
-                        !n.isRead && 'bg-brand-500/[0.04]'
-                      )}
-                    >
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5', TYPE_COLOR[n.type] || 'bg-white/10 text-gray-400')}>
-                        <Icon size={14} />
+              notifications.map((n: any) => {
+                const Icon = TYPE_ICON[n.type] || Bell;
+                return (
+                  <button
+                    key={n._id}
+                    onClick={() => !n.isRead && markRead.mutate(n._id)}
+                    className={cn(
+                      'w-full flex items-start gap-3 p-3.5 text-left transition-colors',
+                      !n.isRead ? 'bg-brand-500/[0.08] hover:bg-brand-500/[0.12]' : 'bg-transparent hover:bg-white/[0.04]'
+                    )}
+                  >
+                    <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5', TYPE_COLOR[n.type] || 'bg-white/10 text-gray-400')}>
+                      <Icon size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-white truncate">{n.title}</span>
+                        {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-white truncate">{n.title}</span>
-                          {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{n.message}</p>
-                        <p className="text-xs text-gray-600 mt-1">{formatRelative(n.createdAt)}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">{n.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatRelative(n.createdAt)}</p>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
