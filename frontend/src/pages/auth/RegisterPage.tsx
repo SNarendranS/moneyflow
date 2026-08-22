@@ -23,7 +23,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormData) => {
     try {
       await authRegister(data);
-      toast.success('Account created! Welcome to MoneyFlow 🎉');
+      toast.success('Account created! Welcome to Cash Canvas 🎉');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Registration failed');
     }

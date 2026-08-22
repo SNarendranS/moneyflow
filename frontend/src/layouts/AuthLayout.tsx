@@ -11,7 +11,7 @@ export default function AuthLayout() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
             <div className="w-8 h-8 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">M</div>
-            <span className="text-2xl font-bold text-white">MoneyFlow</span>
+            <span className="text-2xl font-bold text-white">Cash Canvas</span>
           </div>
           <p className="text-gray-500 text-sm">Your personal financial operating system</p>
         </div>

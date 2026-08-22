@@ -41,8 +41,8 @@ export default function AppLayout() {
       {/* Logo */}
       <div className="p-5 border-b border-white/5">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold">M</div>
-          <span className="text-lg font-bold text-white">MoneyFlow</span>
+          <div className="w-8 h-8 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold"><Wallet /></div>
+          <span className="text-lg font-bold text-white">Cash Canvas</span>
         </div>
       </div>
 
