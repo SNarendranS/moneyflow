@@ -28,10 +28,10 @@ export const formatRelative = (date: string | Date) => formatDistanceToNow(new D
 export const getTransactionColor = (type: string) => {
   switch (type) {
     case 'income': return 'text-emerald-400';
-    case 'expense': return 'text-red-400';
-    case 'transfer': return 'text-blue-400';
-    case 'investment': return 'text-purple-400';
-    default: return 'text-gray-400';
+    case 'expense': return 'text-rose-400';
+    case 'transfer': return 'text-sky-400';
+    case 'investment': return 'text-violet-400';
+    default: return 'text-slate-400';
   }
 };
 
@@ -39,19 +39,19 @@ export const getTransactionSign = (type: string) => {
   switch (type) {
     case 'income': return '+';
     case 'expense': return '-';
-    case 'transfer': return '↕';
-    case 'investment': return '→';
+    case 'transfer': return '';
+    case 'investment': return '• ';
     default: return '';
   }
 };
 
 export const getTransactionBg = (type: string) => {
   switch (type) {
-    case 'income': return 'bg-emerald-500/10 text-emerald-400';
-    case 'expense': return 'bg-red-500/10 text-red-400';
-    case 'transfer': return 'bg-blue-500/10 text-blue-400';
-    case 'investment': return 'bg-purple-500/10 text-purple-400';
-    default: return 'bg-gray-500/10 text-gray-400';
+    case 'income': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    case 'expense': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+    case 'transfer': return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+    case 'investment': return 'bg-violet-500/10 text-violet-400 border-violet-500/20';
+    default: return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
   }
 };
 
@@ -67,18 +67,10 @@ export const calculateNextDue = (frequencyType: string, customDays?: number): Da
   return now;
 };
 
-export const ACCOUNT_ICONS: Record<string, string> = {
-  salary: '💰',
-  savings: '🏦',
-  cash: '💵',
-  wallet: '👛',
-  credit_card: '💳',
-};
-
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   salary: 'Salary Account',
   savings: 'Savings Account',
-  cash: 'Cash',
-  wallet: 'Wallet',
+  cash: 'Cash / Currency',
+  wallet: 'Digital Wallet',
   credit_card: 'Credit Card',
 };

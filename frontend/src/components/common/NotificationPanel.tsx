@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsAPI } from '../../services/api';
 import { formatRelative } from '../../utils';
-import { Bell, CheckCheck, AlertCircle, Clock, Target, Calendar, Trash2, X } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, Clock, Target, Calendar, Trash2, X, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
@@ -14,10 +14,10 @@ const TYPE_ICON: Record<string, any> = {
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  bill_due: 'text-red-400 bg-red-500/10',
-  recharge_due: 'text-amber-400 bg-amber-500/10',
-  sip_due: 'text-purple-400 bg-purple-500/10',
-  goal_milestone: 'text-emerald-400 bg-emerald-500/10',
+  bill_due: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+  recharge_due: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  sip_due: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+  goal_milestone: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
 };
 
 export default function NotificationPanel() {
@@ -73,7 +73,7 @@ export default function NotificationPanel() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="btn-ghost p-2 relative text-gray-400 hover:text-white"
+        className="btn-ghost p-2 relative text-slate-400 hover:text-white"
         title="Notifications"
       >
         <Bell size={18} />
@@ -86,14 +86,14 @@ export default function NotificationPanel() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#131326] border border-white/10 rounded-2xl overflow-hidden z-50 animate-fade-in shadow-2xl shadow-black/80 ring-1 ring-white/5">
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#121422] border border-white/10 rounded-2xl overflow-hidden z-50 animate-fade-in shadow-2xl shadow-black/80 ring-1 ring-white/5">
           {/* Header */}
-          <div className="p-3.5 border-b border-white/10 bg-[#181830]">
+          <div className="p-3.5 border-b border-white/[0.08] bg-[#0f111c]">
             <div className="flex items-center justify-between mb-2.5">
-              <h3 className="font-semibold text-white text-sm flex items-center gap-2">
+              <h3 className="font-semibold text-white text-xs flex items-center gap-2">
                 <span>Notifications</span>
                 {unread.length > 0 && (
-                  <span className="text-[10px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded-full font-mono">
+                  <span className="text-[10px] bg-brand-500/20 text-brand-300 px-2 py-0.5 rounded-full font-mono font-bold">
                     {unread.length} new
                   </span>
                 )}
@@ -114,7 +114,7 @@ export default function NotificationPanel() {
                   <button
                     onClick={() => clearAll.mutate()}
                     disabled={clearAll.isPending}
-                    className="text-xs text-red-400/80 hover:text-red-300 flex items-center gap-1 font-medium transition-colors"
+                    className="text-xs text-rose-400/80 hover:text-rose-300 flex items-center gap-1 font-medium transition-colors"
                     title="Clear all notifications"
                   >
                     <Trash2 size={12} />
@@ -125,14 +125,14 @@ export default function NotificationPanel() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-1.5 bg-white/5 p-1 rounded-xl">
+            <div className="flex gap-1.5 bg-white/[0.04] p-1 rounded-xl">
               <button
                 onClick={() => setView('unread')}
                 className={cn(
                   'flex-1 py-1 text-xs font-medium rounded-lg transition-all',
                   view === 'unread'
-                    ? 'bg-brand-500/20 text-brand-400 border border-brand-500/40 shadow-sm'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-brand-500/20 text-brand-300 border border-brand-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 )}
               >
                 Unread ({unread.length})
@@ -142,8 +142,8 @@ export default function NotificationPanel() {
                 className={cn(
                   'flex-1 py-1 text-xs font-medium rounded-lg transition-all',
                   view === 'all'
-                    ? 'bg-brand-500/20 text-brand-400 border border-brand-500/40 shadow-sm'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-brand-500/20 text-brand-300 border border-brand-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 )}
               >
                 All ({notifications.length})
@@ -152,10 +152,10 @@ export default function NotificationPanel() {
           </div>
 
           {/* List */}
-          <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
+          <div className="max-h-96 overflow-y-auto divide-y divide-white/[0.06]">
             {displayedNotifications.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-sm">
-                {view === 'unread' ? 'No unread notifications 🎉' : 'No notifications yet'}
+              <div className="text-center py-10 text-slate-500 text-xs">
+                {view === 'unread' ? 'All caught up! No unread notifications.' : 'No notifications yet.'}
               </div>
             ) : (
               displayedNotifications.map((n: any) => {
@@ -165,14 +165,14 @@ export default function NotificationPanel() {
                     key={n._id}
                     className={cn(
                       'w-full flex items-start gap-3 p-3.5 text-left transition-colors group relative cursor-pointer',
-                      !n.isRead ? 'bg-brand-500/[0.08] hover:bg-brand-500/[0.12]' : 'bg-transparent hover:bg-white/[0.04]'
+                      !n.isRead ? 'bg-brand-500/[0.07] hover:bg-brand-500/[0.12]' : 'bg-transparent hover:bg-white/[0.04]'
                     )}
                     onClick={() => !n.isRead && markRead.mutate(n._id)}
                   >
                     <div
                       className={cn(
-                        'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5',
-                        TYPE_COLOR[n.type] || 'bg-white/10 text-gray-400'
+                        'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 border',
+                        TYPE_COLOR[n.type] || 'bg-white/10 text-slate-400 border-white/10'
                       )}
                     >
                       <Icon size={14} />
@@ -180,11 +180,11 @@ export default function NotificationPanel() {
 
                     <div className="flex-1 min-w-0 pr-6">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white truncate">{n.title}</span>
-                        {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />}
+                        <span className="text-xs font-semibold text-white truncate">{n.title}</span>
+                        {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-brand-400 flex-shrink-0" />}
                       </div>
-                      <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">{n.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatRelative(n.createdAt)}</p>
+                      <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{n.message}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">{formatRelative(n.createdAt)}</p>
                     </div>
 
                     {/* Delete / Dismiss Button */}
@@ -193,7 +193,7 @@ export default function NotificationPanel() {
                         e.stopPropagation();
                         deleteNotification.mutate(n._id);
                       }}
-                      className="absolute right-3 top-3.5 p-1 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                      className="absolute right-3 top-3.5 p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
                       title="Dismiss notification"
                     >
                       <X size={14} />
