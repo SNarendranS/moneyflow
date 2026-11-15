@@ -1,11 +1,11 @@
 import { PaginationQuery, PaginatedResult } from '../types';
 
-export const getPaginationOptions = (query: PaginationQuery) => {
+export const getPaginationOptions = (query: PaginationQuery, defaultSortBy: string = 'date') => {
   const page = Math.max(1, parseInt(query.page || '1'));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20')));
   const skip = (page - 1) * limit;
   const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
-  const sortBy = query.sortBy || 'createdAt';
+  const sortBy = query.sortBy || defaultSortBy;
   return { page, limit, skip, sortBy, sortOrder };
 };
 

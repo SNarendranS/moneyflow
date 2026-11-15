@@ -26,6 +26,8 @@ export interface PaginationQuery {
   accountId?: string;
   categoryId?: string;
   tagId?: string;
+  minAmount?: string;
+  maxAmount?: string;
 }
 
 export interface PaginatedResult<T> {

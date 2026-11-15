@@ -495,14 +495,31 @@ export const globalSearch = async (req: AuthRequest, res: Response, next: NextFu
     const q = (req.query.q as string) || '';
     if (!q) return sendSuccess(res, { transactions: [], categories: [], accounts: [], tags: [], goals: [] });
 
-    const regex = { $regex: q, $options: 'i' };
+    const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = { $regex: safeQ, $options: 'i' };
     const userId = req.user!.id;
+
+    const txOr: any[] = [
+      { notes: regex },
+      { incomeSource: regex },
+      { toExternal: regex },
+      { investmentName: regex },
+      { type: regex },
+    ];
+    const numericQ = q.replace(/[^0-9.]/g, '');
+    if (numericQ && !isNaN(Number(numericQ))) {
+      txOr.push({ amount: Number(numericQ) });
+    }
 
     const [transactions, categories, accounts, tags, goals] = await Promise.all([
       (await import('../models/Transaction')).default.find({
         userId,
-        $or: [{ notes: regex }, { incomeSource: regex }, { toExternal: regex }, { investmentName: regex }],
-      }).limit(10).populate('accountId', 'name').populate('categoryId', 'name'),
+        $or: txOr,
+      })
+        .sort({ date: -1 })
+        .limit(10)
+        .populate('accountId', 'name')
+        .populate('categoryId', 'name'),
       Category.find({ userId, name: regex, isArchived: false }).limit(5),
       (await import('../models/Account')).default.find({ userId, name: regex, isArchived: false }).limit(5),
       Tag.find({ userId, name: regex }).limit(5),
