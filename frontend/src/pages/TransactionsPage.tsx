@@ -30,6 +30,9 @@ import {
   ArrowUpDown,
   RotateCcw,
   Loader2,
+  Check,
+  CalendarDays,
+  IndianRupee,
 } from 'lucide-react';
 import {
   format,
@@ -40,27 +43,28 @@ import {
   startOfYear,
   endOfYear,
   subMonths,
+  subDays,
 } from 'date-fns';
 import toast from 'react-hot-toast';
 import QuickAddModal from '../components/transactions/QuickAddModal';
 import { Account, Category } from '../types';
 
 const TYPE_FILTERS = [
-  { value: 'all', label: 'All Types' },
-  { value: 'expense', label: 'Expenses' },
-  { value: 'income', label: 'Income' },
-  { value: 'investment', label: 'Investments' },
-  { value: 'transfer', label: 'Transfers' },
+  { value: 'all', label: 'All', icon: Filter },
+  { value: 'expense', label: 'Expenses', icon: TrendingDown },
+  { value: 'income', label: 'Income', icon: TrendingUp },
+  { value: 'investment', label: 'Investments', icon: PiggyBank },
+  { value: 'transfer', label: 'Transfers', icon: ArrowLeftRight },
 ];
 
 const DATE_PRESETS = [
-  { value: 'all', label: 'All Dates' },
+  { value: 'all', label: 'All Time' },
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },
   { value: 'this_month', label: 'This Month' },
   { value: 'last_month', label: 'Last Month' },
   { value: 'this_year', label: 'This Year' },
-  { value: 'custom', label: 'Custom Range' },
+  { value: 'custom', label: 'Custom Range…' },
 ];
 
 const SORT_OPTIONS = [
@@ -86,15 +90,23 @@ export default function TransactionsPage() {
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [sortKey, setSortKey] = useState('date_desc'); // default sort is by transaction date descending
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+
+  // Modals & Sheets
+  const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [sortModalOpen, setSortModalOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editTx, setEditTx] = useState<any>(null);
+
+  // Temporary custom dates in modal
+  const [tempStartDate, setTempStartDate] = useState('');
+  const [tempEndDate, setTempEndDate] = useState('');
+  const [dateModalTab, setDateModalTab] = useState<'presets' | 'custom'>('presets');
 
   // Search with debounce
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-
-  // Modals
-  const [showAdd, setShowAdd] = useState(false);
-  const [editTx, setEditTx] = useState<any>(null);
 
   // Debounce search input by 350ms
   useEffect(() => {
@@ -227,303 +239,213 @@ export default function TransactionsPage() {
     setPage(1);
   };
 
-  // Helper label for the selected account
-  const selectedAccountName =
-    accountFilter !== 'all'
-      ? accounts.find((a) => a._id === accountFilter)?.name || 'Selected Account'
-      : null;
+  // Helper labels
+  const selectedAccount = accounts.find((a) => a._id === accountFilter);
+  const selectedCategory = categories.find((c) => c._id === categoryFilter);
 
-  // Helper label for the selected category
-  const selectedCategoryName =
-    categoryFilter !== 'all'
-      ? categories.find((c) => c._id === categoryFilter)?.name || 'Selected Category'
-      : null;
+  const getDateLabel = () => {
+    if (datePreset === 'all') return 'All Dates';
+    if (datePreset === 'today') return 'Today';
+    if (datePreset === 'this_week') return 'This Week';
+    if (datePreset === 'this_month') return 'This Month';
+    if (datePreset === 'last_month') return 'Last Month';
+    if (datePreset === 'this_year') return 'This Year';
+    if (datePreset === 'custom') {
+      if (customStartDate && customEndDate) return `${customStartDate} → ${customEndDate}`;
+      if (customStartDate) return `From ${customStartDate}`;
+      if (customEndDate) return `Until ${customEndDate}`;
+      return 'Custom Range';
+    }
+    return 'Date';
+  };
+
+  // Handle open date modal
+  const openDateModal = (tab: 'presets' | 'custom' = 'presets') => {
+    setTempStartDate(customStartDate);
+    setTempEndDate(customEndDate);
+    setDateModalTab(datePreset === 'custom' || tab === 'custom' ? 'custom' : 'presets');
+    setDateModalOpen(true);
+  };
+
+  const applyCustomDates = () => {
+    setCustomStartDate(tempStartDate);
+    setCustomEndDate(tempEndDate);
+    setDatePreset('custom');
+    setPage(1);
+    setDateModalOpen(false);
+  };
 
   return (
-    <div className="space-y-5">
-      {/* ── Top Header ────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* ── Page Header ────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Transactions</h1>
-          <p className="text-slate-400 text-sm mt-0.5">
-            {pagination?.total ?? 0} transaction{pagination?.total === 1 ? '' : 's'} recorded
-            {activeFiltersCount > 0 && ' (filtered)'}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Transactions</h1>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-400 border border-white/10 font-medium">
+              {pagination?.total ?? 0}
+            </span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5 hidden sm:block">
+            Track expenses, earnings, and transfers sorted by transaction date
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           {activeFiltersCount > 0 && (
             <button
               onClick={resetAllFilters}
-              className="btn-ghost flex items-center gap-1.5 text-xs text-slate-400 hover:text-white"
+              className="btn-ghost flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 py-1.5 px-2.5"
               title="Reset all filters"
             >
-              <RotateCcw size={14} />
-              <span className="hidden sm:inline">Reset Filters</span>
+              <RotateCcw size={13} />
+              <span className="hidden sm:inline">Reset</span>
             </button>
           )}
-          <button onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2">
+
+          <button
+            onClick={() => setShowAdd(true)}
+            className="btn-primary flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 sm:px-4"
+          >
             <Plus size={16} />
             <span>Add Transaction</span>
           </button>
         </div>
       </div>
 
-      {/* ── Search & Filter Controls Bar ──────────────────────────── */}
-      <div className="card p-3.5 space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
-          {/* Search Input with Debounce */}
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              {isDebouncing || isFetching ? (
-                <Loader2 size={16} className="animate-spin text-brand-400" />
-              ) : (
-                <Search size={16} />
-              )}
-            </div>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by caption, note, category, account, type, amount, date…"
-              className="input pl-10 pr-9 py-2 text-sm bg-white/[0.03] border-white/10 placeholder-slate-500 rounded-xl"
-            />
-            {searchInput && (
-              <button
-                onClick={() => {
-                  setSearchInput('');
-                  setDebouncedSearch('');
-                  setPage(1);
-                }}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
-                title="Clear search"
-              >
-                <X size={15} />
-              </button>
+      {/* ── Main Search & Quick Filter Bar ─────────────────────────── */}
+      <div className="card p-3 sm:p-4 space-y-3">
+        {/* Search Input Row */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            {isDebouncing || isFetching ? (
+              <Loader2 size={16} className="animate-spin text-brand-400" />
+            ) : (
+              <Search size={16} />
             )}
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Dynamic Account Filter (Backend driven) */}
-            <div className="relative">
-              <select
-                value={accountFilter}
-                onChange={(e) => {
-                  setAccountFilter(e.target.value);
-                  setPage(1);
-                }}
-                className={cn(
-                  'input py-2 pl-3 pr-8 text-xs rounded-xl transition-all cursor-pointer border',
-                  accountFilter !== 'all'
-                    ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 font-medium'
-                    : 'bg-white/[0.04] border-white/10 text-slate-300'
-                )}
-                aria-label="Filter by Account"
-              >
-                <option value="all">All Accounts ({accounts.length})</option>
-                {accounts.map((acc) => (
-                  <option key={acc._id} value={acc._id}>
-                    {acc.name} ({acc.type})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Date Preset Filter */}
-            <div className="relative">
-              <select
-                value={datePreset}
-                onChange={(e) => {
-                  setDatePreset(e.target.value);
-                  setPage(1);
-                }}
-                className={cn(
-                  'input py-2 pl-3 pr-8 text-xs rounded-xl transition-all cursor-pointer border',
-                  datePreset !== 'all'
-                    ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 font-medium'
-                    : 'bg-white/[0.04] border-white/10 text-slate-300'
-                )}
-                aria-label="Filter by Date Range"
-              >
-                {DATE_PRESETS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort Order Selector (Date wise by default) */}
-            <div className="relative">
-              <select
-                value={sortKey}
-                onChange={(e) => {
-                  setSortKey(e.target.value);
-                  setPage(1);
-                }}
-                className="input py-2 pl-3 pr-8 text-xs rounded-xl bg-white/[0.04] border-white/10 text-slate-300 cursor-pointer"
-                aria-label="Sort order"
-              >
-                {SORT_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* More Filters Toggle Button */}
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search note, category, account, type, amount, date…"
+            className="w-full bg-[#0a0c14] border border-white/10 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all"
+          />
+          {searchInput && (
             <button
-              onClick={() => setShowFiltersPanel((prev) => !prev)}
-              className={cn(
-                'btn-secondary py-2 px-3 text-xs flex items-center gap-1.5 rounded-xl border transition-all',
-                showFiltersPanel || categoryFilter !== 'all' || minAmount || maxAmount || datePreset === 'custom'
-                  ? 'bg-brand-500/20 text-brand-300 border-brand-500/40'
-                  : 'bg-white/[0.04] text-slate-300 border-white/10'
-              )}
-              title="More filter options"
-            >
-              <SlidersHorizontal size={14} />
-              <span>More</span>
-              {(categoryFilter !== 'all' || minAmount || maxAmount) && (
-                <span className="w-2 h-2 rounded-full bg-brand-400"></span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* ── Expanded Advanced Filters Panel ───────────────────────── */}
-        {showFiltersPanel && (
-          <div className="pt-3 border-t border-white/[0.08] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Category Filter */}
-            <div>
-              <label className="label text-[11px] text-slate-400 mb-1 flex items-center gap-1">
-                <TagIcon size={12} /> Category
-              </label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="input py-1.5 px-3 text-xs bg-[#0d0f18] border-white/10 rounded-xl"
-              >
-                <option value="all">All Categories ({categories.length})</option>
-                {categories.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Min Amount */}
-            <div>
-              <label className="label text-[11px] text-slate-400 mb-1">Min Amount ({currency})</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={minAmount}
-                onChange={(e) => {
-                  setMinAmount(e.target.value);
-                  setPage(1);
-                }}
-                className="input py-1.5 px-3 text-xs bg-[#0d0f18] border-white/10 rounded-xl"
-              />
-            </div>
-
-            {/* Max Amount */}
-            <div>
-              <label className="label text-[11px] text-slate-400 mb-1">Max Amount ({currency})</label>
-              <input
-                type="number"
-                placeholder="No limit"
-                value={maxAmount}
-                onChange={(e) => {
-                  setMaxAmount(e.target.value);
-                  setPage(1);
-                }}
-                className="input py-1.5 px-3 text-xs bg-[#0d0f18] border-white/10 rounded-xl"
-              />
-            </div>
-
-            {/* Reset inside drawer */}
-            <div className="flex items-end">
-              <button
-                onClick={resetAllFilters}
-                className="btn-secondary w-full py-1.5 text-xs flex items-center justify-center gap-1.5 rounded-xl border-white/10 hover:border-rose-500/30 hover:text-rose-300"
-              >
-                <RotateCcw size={13} />
-                <span>Reset All Filters</span>
-              </button>
-            </div>
-
-            {/* Custom Date Pickers (if custom date range is active) */}
-            {datePreset === 'custom' && (
-              <div className="sm:col-span-2 md:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/[0.05]">
-                <div>
-                  <label className="label text-[11px] text-slate-400 mb-1 flex items-center gap-1">
-                    <Calendar size={12} /> Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => {
-                      setCustomStartDate(e.target.value);
-                      setPage(1);
-                    }}
-                    className="input py-1.5 px-3 text-xs bg-[#0d0f18] border-white/10 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="label text-[11px] text-slate-400 mb-1 flex items-center gap-1">
-                    <Calendar size={12} /> End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => {
-                      setCustomEndDate(e.target.value);
-                      setPage(1);
-                    }}
-                    className="input py-1.5 px-3 text-xs bg-[#0d0f18] border-white/10 rounded-xl"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Type Filter Pills ───────────────────────────────────────── */}
-        <div className="flex items-center gap-1.5 pt-1 overflow-x-auto no-scrollbar">
-          <Filter size={14} className="text-slate-500 mr-1 flex-shrink-0" />
-          {TYPE_FILTERS.map((f) => (
-            <button
-              key={f.value}
               onClick={() => {
-                setTypeFilter(f.value);
+                setSearchInput('');
+                setDebouncedSearch('');
                 setPage(1);
               }}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-medium transition-all border whitespace-nowrap flex-shrink-0',
-                typeFilter === f.value
-                  ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-glow'
-                  : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
-              )}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+              title="Clear search"
             >
-              {f.label}
+              <X size={15} />
             </button>
-          ))}
+          )}
         </div>
 
-        {/* ── Active Filter Badges ───────────────────────────────────── */}
+        {/* Quick Filter Buttons (Mobile-first, clean wrapping) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Account Filter Trigger */}
+          <button
+            onClick={() => setAccountModalOpen(true)}
+            className={cn(
+              'h-9 px-3 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all border',
+              accountFilter !== 'all'
+                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm'
+                : 'bg-white/[0.04] text-slate-300 border-white/10 hover:bg-white/[0.07] hover:text-white'
+            )}
+          >
+            <Wallet size={14} className={accountFilter !== 'all' ? 'text-sky-400' : 'text-slate-400'} />
+            <span className="truncate max-w-[120px] sm:max-w-[150px]">
+              {selectedAccount ? selectedAccount.name : 'All Accounts'}
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">▼</span>
+          </button>
+
+          {/* Date Range Trigger */}
+          <button
+            onClick={() => openDateModal()}
+            className={cn(
+              'h-9 px-3 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all border',
+              datePreset !== 'all'
+                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm'
+                : 'bg-white/[0.04] text-slate-300 border-white/10 hover:bg-white/[0.07] hover:text-white'
+            )}
+          >
+            <Calendar size={14} className={datePreset !== 'all' ? 'text-indigo-400' : 'text-slate-400'} />
+            <span className="truncate max-w-[130px] sm:max-w-[160px]">{getDateLabel()}</span>
+            <span className="text-[10px] text-slate-500 font-mono">▼</span>
+          </button>
+
+          {/* Comprehensive Filters Drawer Trigger */}
+          <button
+            onClick={() => setFilterModalOpen(true)}
+            className={cn(
+              'h-9 px-3 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all border',
+              activeFiltersCount > 0
+                ? 'bg-brand-500/20 text-brand-300 border-brand-500/40'
+                : 'bg-white/[0.04] text-slate-300 border-white/10 hover:bg-white/[0.07] hover:text-white'
+            )}
+          >
+            <SlidersHorizontal size={14} />
+            <span>Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+
+          {/* Sort Selector Trigger */}
+          <button
+            onClick={() => setSortModalOpen(true)}
+            className="h-9 px-3 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 bg-white/[0.04] text-slate-300 border border-white/10 hover:bg-white/[0.07] hover:text-white transition-all ml-auto"
+            title="Sort transactions"
+          >
+            <ArrowUpDown size={14} className="text-slate-400" />
+            <span className="hidden sm:inline">{selectedSort.label}</span>
+            <span className="sm:hidden font-mono">Sort</span>
+          </button>
+        </div>
+
+        {/* ── Type Tabs (Smooth Horizontal Scroll on Mobile) ────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar border-t border-white/[0.06] pt-2.5">
+          {TYPE_FILTERS.map((f) => {
+            const Icon = f.icon;
+            const isSelected = typeFilter === f.value;
+            return (
+              <button
+                key={f.value}
+                onClick={() => {
+                  setTypeFilter(f.value);
+                  setPage(1);
+                }}
+                className={cn(
+                  'px-3 py-1.5 rounded-xl text-xs font-medium transition-all border whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1.5',
+                  isSelected
+                    ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-glow'
+                    : 'bg-white/[0.02] text-slate-400 border-white/[0.06] hover:text-white hover:bg-white/[0.06]'
+                )}
+              >
+                <Icon size={13} className={isSelected ? 'text-brand-400' : 'text-slate-500'} />
+                <span>{f.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Active Filter Badges Strip ───────────────────────────── */}
         {activeFiltersCount > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-white/[0.06] text-xs">
-            <span className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider mr-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">
               Active:
             </span>
 
             {debouncedSearch.trim() && (
-              <span className="badge bg-brand-500/10 text-brand-300 border-brand-500/30 gap-1.5">
+              <span className="badge bg-brand-500/10 text-brand-300 border-brand-500/30 gap-1.5 py-0.5">
                 <Search size={11} /> "{debouncedSearch}"
                 <button
                   onClick={() => {
@@ -538,9 +460,9 @@ export default function TransactionsPage() {
               </span>
             )}
 
-            {selectedAccountName && (
-              <span className="badge bg-sky-500/10 text-sky-300 border-sky-500/30 gap-1.5">
-                <Wallet size={11} /> Account: {selectedAccountName}
+            {accountFilter !== 'all' && (
+              <span className="badge bg-sky-500/10 text-sky-300 border-sky-500/30 gap-1.5 py-0.5">
+                <Wallet size={11} /> {selectedAccount?.name || 'Account'}
                 <button
                   onClick={() => {
                     setAccountFilter('all');
@@ -554,8 +476,8 @@ export default function TransactionsPage() {
             )}
 
             {datePreset !== 'all' && (
-              <span className="badge bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1.5">
-                <Calendar size={11} /> {DATE_PRESETS.find((p) => p.value === datePreset)?.label}
+              <span className="badge bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1.5 py-0.5">
+                <Calendar size={11} /> {getDateLabel()}
                 <button
                   onClick={() => {
                     setDatePreset('all');
@@ -571,7 +493,7 @@ export default function TransactionsPage() {
             )}
 
             {typeFilter !== 'all' && (
-              <span className="badge bg-violet-500/10 text-violet-300 border-violet-500/30 gap-1.5">
+              <span className="badge bg-violet-500/10 text-violet-300 border-violet-500/30 gap-1.5 py-0.5">
                 Type: {TYPE_FILTERS.find((t) => t.value === typeFilter)?.label}
                 <button
                   onClick={() => {
@@ -585,9 +507,9 @@ export default function TransactionsPage() {
               </span>
             )}
 
-            {selectedCategoryName && (
-              <span className="badge bg-emerald-500/10 text-emerald-300 border-emerald-500/30 gap-1.5">
-                <TagIcon size={11} /> Category: {selectedCategoryName}
+            {categoryFilter !== 'all' && (
+              <span className="badge bg-emerald-500/10 text-emerald-300 border-emerald-500/30 gap-1.5 py-0.5">
+                <TagIcon size={11} /> {selectedCategory?.name || 'Category'}
                 <button
                   onClick={() => {
                     setCategoryFilter('all');
@@ -601,7 +523,7 @@ export default function TransactionsPage() {
             )}
 
             {minAmount && (
-              <span className="badge bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5">
+              <span className="badge bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5 py-0.5">
                 Min: {formatCurrency(Number(minAmount), currency)}
                 <button
                   onClick={() => {
@@ -616,7 +538,7 @@ export default function TransactionsPage() {
             )}
 
             {maxAmount && (
-              <span className="badge bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5">
+              <span className="badge bg-amber-500/10 text-amber-300 border-amber-500/30 gap-1.5 py-0.5">
                 Max: {formatCurrency(Number(maxAmount), currency)}
                 <button
                   onClick={() => {
@@ -632,7 +554,7 @@ export default function TransactionsPage() {
 
             <button
               onClick={resetAllFilters}
-              className="text-[11px] text-slate-400 hover:text-rose-300 ml-1 underline underline-offset-2"
+              className="text-[11px] text-slate-400 hover:text-rose-300 ml-auto underline underline-offset-2"
             >
               Clear all
             </button>
@@ -649,20 +571,23 @@ export default function TransactionsPage() {
           </div>
         ) : transactions.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <p className="text-slate-300 font-medium mb-1">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto mb-3 text-slate-500">
+              <Search size={22} />
+            </div>
+            <p className="text-slate-200 font-semibold mb-1">
               {activeFiltersCount > 0 ? 'No matching transactions found' : 'No transactions recorded yet'}
             </p>
-            <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
+            <p className="text-xs text-slate-400 mb-5 max-w-sm mx-auto leading-relaxed">
               {activeFiltersCount > 0
-                ? 'Try adjusting your search terms, account, date, or other filter criteria.'
-                : 'Start tracking your cash flow by recording expenses, earnings, and investments.'}
+                ? 'Try broadening your search term, changing accounts, or resetting active filters.'
+                : 'Start tracking your cash flow by recording your expenses, earnings, and investments.'}
             </p>
             {activeFiltersCount > 0 ? (
               <button
                 onClick={resetAllFilters}
                 className="btn-secondary text-xs inline-flex items-center gap-1.5"
               >
-                <RotateCcw size={13} /> Reset Filters
+                <RotateCcw size={13} /> Reset All Filters
               </button>
             ) : (
               <button
@@ -678,7 +603,7 @@ export default function TransactionsPage() {
             {transactions.map((tx: any) => (
               <div
                 key={tx._id}
-                className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-white/[0.03] transition-colors group"
+                className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-white/[0.03] transition-colors group"
               >
                 {/* Type Icon Badge */}
                 <div
@@ -699,7 +624,7 @@ export default function TransactionsPage() {
                 </div>
 
                 {/* Description & Metadata */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pr-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-white truncate">
                       {tx.type === 'expense' && (tx.categoryId?.name || 'Expense')}
@@ -714,62 +639,42 @@ export default function TransactionsPage() {
                           tx.investmentType ||
                           'Investment')}
                     </span>
-                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.05] text-slate-400 border border-white/[0.08]">
-                      {tx.type}
-                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500 flex-wrap">
                     {/* Transaction Date (Prominent) */}
                     <span className="text-slate-400 font-medium">{formatDate(tx.date)}</span>
 
                     {/* Account Name */}
-                    {tx.accountId && <span>· {tx.accountId.name}</span>}
+                    {tx.accountId && (
+                      <span className="text-slate-400 font-medium">· {tx.accountId.name}</span>
+                    )}
 
-                    {/* Category if transfer or additional details */}
+                    {/* Notes snippet */}
+                    {tx.notes && (
+                      <span className="text-slate-300 italic truncate max-w-[140px] sm:max-w-xs">
+                        · "{tx.notes}"
+                      </span>
+                    )}
+
+                    {/* Secondary details */}
                     {tx.type === 'income' && tx.categoryId && tx.incomeSource && (
-                      <span className="text-emerald-400/80 truncate max-w-32">
+                      <span className="text-emerald-400/80 truncate max-w-32 hidden sm:inline">
                         · {tx.incomeSource}
                       </span>
                     )}
                     {tx.type === 'investment' && tx.categoryId && tx.investmentName && (
-                      <span className="text-violet-400/80 truncate max-w-32">
+                      <span className="text-violet-400/80 truncate max-w-32 hidden sm:inline">
                         · {tx.investmentName}
                       </span>
                     )}
                     {tx.subCategoryId && (
-                      <span className="text-slate-400 truncate max-w-28">
+                      <span className="text-slate-400 truncate max-w-28 hidden sm:inline">
                         · {tx.subCategoryId.name}
-                      </span>
-                    )}
-
-                    {/* Caption / Notes */}
-                    {tx.notes && (
-                      <span className="text-slate-300 italic truncate max-w-xs">
-                        · "{tx.notes}"
                       </span>
                     )}
                   </div>
                 </div>
-
-                {/* Tags */}
-                {tx.tags?.length > 0 && (
-                  <div className="hidden md:flex gap-1">
-                    {tx.tags.slice(0, 2).map((tag: any) => (
-                      <span
-                        key={tag._id}
-                        className="text-[11px] px-2 py-0.5 rounded-md border"
-                        style={{
-                          background: tag.color + '15',
-                          color: tag.color,
-                          borderColor: tag.color + '30',
-                        }}
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
                 {/* Amount */}
                 <div className={cn('text-sm font-mono font-bold text-right flex-shrink-0', getTransactionColor(tx.type))}>
@@ -784,7 +689,7 @@ export default function TransactionsPage() {
                     className="btn-ghost p-1.5 text-blue-400 hover:text-blue-300"
                     title="Edit transaction"
                   >
-                    <Pencil size={15} />
+                    <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => {
@@ -795,7 +700,7 @@ export default function TransactionsPage() {
                     className="btn-ghost p-1.5 text-rose-400 hover:text-rose-300"
                     title="Delete transaction"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -806,7 +711,7 @@ export default function TransactionsPage() {
 
       {/* ── Pagination ────────────────────────────────────────────── */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-1">
           <span className="text-xs text-slate-400 font-medium">
             Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
           </span>
@@ -829,6 +734,594 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── DATE RANGE MODAL (10/10 UX - Visible, Clear, Instant) ─── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {dateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setDateModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-md bg-[#121422] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up max-h-[85vh] overflow-y-auto shadow-2xl shadow-black/90 ring-1 ring-white/5">
+            {/* Mobile Drag Bar */}
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarDays size={18} className="text-brand-400" />
+                <h2 className="text-base font-semibold text-white tracking-tight">Select Date Range</h2>
+              </div>
+              <button
+                onClick={() => setDateModalOpen(false)}
+                className="btn-ghost p-1.5 text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Segmented Control: Presets vs Custom Range */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-[#090b12] rounded-xl border border-white/10 mb-4">
+              <button
+                onClick={() => setDateModalTab('presets')}
+                className={cn(
+                  'py-1.5 text-xs font-medium rounded-lg transition-all',
+                  dateModalTab === 'presets'
+                    ? 'bg-brand-500/20 text-brand-300 font-semibold border border-brand-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                )}
+              >
+                Quick Presets
+              </button>
+              <button
+                onClick={() => setDateModalTab('custom')}
+                className={cn(
+                  'py-1.5 text-xs font-medium rounded-lg transition-all',
+                  dateModalTab === 'custom'
+                    ? 'bg-brand-500/20 text-brand-300 font-semibold border border-brand-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                )}
+              >
+                Custom Range
+              </button>
+            </div>
+
+            {/* Presets Grid */}
+            {dateModalTab === 'presets' && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {DATE_PRESETS.filter((p) => p.value !== 'custom').map((p) => {
+                    const isSelected = datePreset === p.value;
+                    return (
+                      <button
+                        key={p.value}
+                        onClick={() => {
+                          setDatePreset(p.value);
+                          setPage(1);
+                          setDateModalOpen(false);
+                        }}
+                        className={cn(
+                          'p-3 rounded-xl border text-xs font-medium text-left transition-all flex items-center justify-between',
+                          isSelected
+                            ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 font-semibold'
+                            : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.07] hover:text-white'
+                        )}
+                      >
+                        <span>{p.label}</span>
+                        {isSelected && <Check size={14} className="text-brand-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-white/[0.08]">
+                  <button
+                    onClick={() => setDateModalTab('custom')}
+                    className="w-full btn-secondary text-xs py-2.5 flex items-center justify-center gap-2 rounded-xl text-brand-300 border-brand-500/30 hover:bg-brand-500/10"
+                  >
+                    <span>Or define specific Start & End dates</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Range Picker */}
+            {dateModalTab === 'custom' && (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                      From (Start Date)
+                    </label>
+                    <input
+                      type="date"
+                      value={tempStartDate}
+                      onChange={(e) => setTempStartDate(e.target.value)}
+                      className="w-full bg-[#0a0c14] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                      To (End Date)
+                    </label>
+                    <input
+                      type="date"
+                      value={tempEndDate}
+                      onChange={(e) => setTempEndDate(e.target.value)}
+                      className="w-full bg-[#0a0c14] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Shortcut Buttons for Custom Range */}
+                <div>
+                  <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">
+                    Quick Shortcuts
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        setTempStartDate(format(subDays(now, 7), 'yyyy-MM-dd'));
+                        setTempEndDate(format(now, 'yyyy-MM-dd'));
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10"
+                    >
+                      Last 7 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        setTempStartDate(format(subDays(now, 30), 'yyyy-MM-dd'));
+                        setTempEndDate(format(now, 'yyyy-MM-dd'));
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10"
+                    >
+                      Last 30 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        setTempStartDate(format(subDays(now, 90), 'yyyy-MM-dd'));
+                        setTempEndDate(format(now, 'yyyy-MM-dd'));
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10"
+                    >
+                      Last 90 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        setTempStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+                        setTempEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10"
+                    >
+                      This Month
+                    </button>
+                  </div>
+                </div>
+
+                {/* Apply Button */}
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempStartDate('');
+                      setTempEndDate('');
+                      setDatePreset('all');
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                      setPage(1);
+                      setDateModalOpen(false);
+                    }}
+                    className="btn-secondary flex-1 text-xs py-2.5"
+                  >
+                    Clear Dates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyCustomDates}
+                    className="btn-primary flex-1 text-xs py-2.5 shadow-glow"
+                  >
+                    Apply Custom Range
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── ACCOUNT SELECTOR MODAL / BOTTOM SHEET ─────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {accountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setAccountModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-md bg-[#121422] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up max-h-[85vh] overflow-y-auto shadow-2xl shadow-black/90 ring-1 ring-white/5">
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Wallet size={18} className="text-sky-400" />
+                <h2 className="text-base font-semibold text-white tracking-tight">Filter by Account</h2>
+              </div>
+              <button
+                onClick={() => setAccountModalOpen(false)}
+                className="btn-ghost p-1.5 text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-3">
+              Dynamically retrieved from your registered accounts
+            </p>
+
+            <div className="space-y-2">
+              {/* All Accounts Option */}
+              <button
+                onClick={() => {
+                  setAccountFilter('all');
+                  setPage(1);
+                  setAccountModalOpen(false);
+                }}
+                className={cn(
+                  'w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between',
+                  accountFilter === 'all'
+                    ? 'bg-sky-500/15 text-sky-200 border-sky-500/40 font-semibold'
+                    : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.07] hover:text-white'
+                )}
+              >
+                <div>
+                  <div className="text-sm font-medium">All Accounts</div>
+                  <div className="text-[11px] text-slate-500">Show transactions from every account</div>
+                </div>
+                {accountFilter === 'all' && <Check size={16} className="text-sky-400" />}
+              </button>
+
+              {/* Dynamic Account List from Backend */}
+              {accounts.map((acc) => {
+                const isSelected = accountFilter === acc._id;
+                return (
+                  <button
+                    key={acc._id}
+                    onClick={() => {
+                      setAccountFilter(acc._id);
+                      setPage(1);
+                      setAccountModalOpen(false);
+                    }}
+                    className={cn(
+                      'w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between',
+                      isSelected
+                        ? 'bg-sky-500/15 text-sky-200 border-sky-500/40 font-semibold'
+                        : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.07] hover:text-white'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{
+                          background: acc.color ? `${acc.color}25` : '#38bdf825',
+                          color: acc.color || '#38bdf8',
+                        }}
+                      >
+                        <Wallet size={15} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-white">{acc.name}</div>
+                        <div className="text-[11px] text-slate-400 capitalize">{acc.type}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-mono font-bold text-slate-300">
+                        {formatCurrency(acc.currentBalance, currency)}
+                      </div>
+                      {isSelected && <span className="text-[10px] text-sky-400 font-medium">Selected</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── COMPREHENSIVE FILTER MODAL / BOTTOM SHEET ─────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {filterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setFilterModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-lg bg-[#121422] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up max-h-[88vh] overflow-y-auto shadow-2xl shadow-black/90 ring-1 ring-white/5 space-y-5">
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden" />
+
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={18} className="text-brand-400" />
+                <h2 className="text-base font-semibold text-white tracking-tight">Advanced Filters</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={resetAllFilters}
+                    className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2"
+                  >
+                    Reset all
+                  </button>
+                )}
+                <button
+                  onClick={() => setFilterModalOpen(false)}
+                  className="btn-ghost p-1.5 text-slate-400 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Section 1: Account */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Wallet size={13} className="text-sky-400" /> Account
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setAccountFilter('all')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-xl text-xs font-medium border transition-all',
+                    accountFilter === 'all'
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold'
+                      : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/[0.06]'
+                  )}
+                >
+                  All Accounts ({accounts.length})
+                </button>
+                {accounts.map((acc) => (
+                  <button
+                    key={acc._id}
+                    onClick={() => setAccountFilter(acc._id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl text-xs font-medium border transition-all',
+                      accountFilter === acc._id
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold'
+                        : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/[0.06]'
+                    )}
+                  >
+                    {acc.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 2: Date Range */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Calendar size={13} className="text-indigo-400" /> Date Range
+                </label>
+                <button
+                  onClick={() => {
+                    setFilterModalOpen(false);
+                    openDateModal('custom');
+                  }}
+                  className="text-[11px] text-brand-300 hover:text-brand-200 underline"
+                >
+                  Set custom dates →
+                </button>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {DATE_PRESETS.filter((p) => p.value !== 'custom').map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setDatePreset(p.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl text-xs font-medium border transition-all',
+                      datePreset === p.value
+                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 font-semibold'
+                        : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/[0.06]'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {datePreset === 'custom' && (
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-300 flex items-center justify-between">
+                  <span>Custom: {getDateLabel()}</span>
+                  <button
+                    onClick={() => {
+                      setFilterModalOpen(false);
+                      openDateModal('custom');
+                    }}
+                    className="text-brand-300 hover:underline text-[11px]"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3: Categories */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <TagIcon size={13} className="text-emerald-400" /> Category
+              </label>
+              <div className="flex gap-1.5 flex-wrap max-h-36 overflow-y-auto pr-1">
+                <button
+                  onClick={() => setCategoryFilter('all')}
+                  className={cn(
+                    'px-2.5 py-1 rounded-xl text-xs font-medium border transition-all',
+                    categoryFilter === 'all'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
+                      : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/[0.06]'
+                  )}
+                >
+                  All ({categories.length})
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c._id}
+                    onClick={() => setCategoryFilter(c._id)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-xl text-xs font-medium border transition-all',
+                      categoryFilter === c._id
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
+                        : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/[0.06]'
+                    )}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 4: Amount Range */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <IndianRupee size={13} className="text-amber-400" /> Amount Range ({currency})
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Min amount"
+                    value={minAmount}
+                    onChange={(e) => setMinAmount(e.target.value)}
+                    className="w-full bg-[#0a0c14] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Max amount"
+                    value={maxAmount}
+                    onChange={(e) => setMaxAmount(e.target.value)}
+                    className="w-full bg-[#0a0c14] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+              {/* Quick Amount Shortcuts */}
+              <div className="flex gap-1.5 flex-wrap pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinAmount('');
+                    setMaxAmount('500');
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] text-slate-400 hover:text-white"
+                >
+                  &lt; 500
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinAmount('500');
+                    setMaxAmount('2000');
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] text-slate-400 hover:text-white"
+                >
+                  500 - 2,000
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinAmount('2000');
+                    setMaxAmount('10000');
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] text-slate-400 hover:text-white"
+                >
+                  2,000 - 10,000
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinAmount('10000');
+                    setMaxAmount('');
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] text-slate-400 hover:text-white"
+                >
+                  &gt; 10,000
+                </button>
+              </div>
+            </div>
+
+            {/* Apply Button */}
+            <div className="pt-2 border-t border-white/[0.08] flex items-center gap-2">
+              <button
+                onClick={resetAllFilters}
+                className="btn-secondary flex-1 text-xs py-2.5"
+              >
+                Reset All
+              </button>
+              <button
+                onClick={() => {
+                  setPage(1);
+                  setFilterModalOpen(false);
+                }}
+                className="btn-primary flex-1 text-xs py-2.5 shadow-glow"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── SORT ORDER MODAL / BOTTOM SHEET ───────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {sortModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setSortModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-sm bg-[#121422] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up shadow-2xl shadow-black/90 ring-1 ring-white/5">
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ArrowUpDown size={18} className="text-brand-400" />
+                <h2 className="text-base font-semibold text-white tracking-tight">Sort Transactions</h2>
+              </div>
+              <button
+                onClick={() => setSortModalOpen(false)}
+                className="btn-ghost p-1.5 text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              {SORT_OPTIONS.map((s) => {
+                const isSelected = sortKey === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => {
+                      setSortKey(s.value);
+                      setPage(1);
+                      setSortModalOpen(false);
+                    }}
+                    className={cn(
+                      'w-full p-3 rounded-xl border text-xs font-medium text-left transition-all flex items-center justify-between',
+                      isSelected
+                        ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 font-semibold'
+                        : 'bg-white/[0.03] text-slate-300 border-white/[0.08] hover:bg-white/[0.07] hover:text-white'
+                    )}
+                  >
+                    <span>{s.label}</span>
+                    {isSelected && <Check size={15} className="text-brand-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transaction Add & Edit Modals ─────────────────────────── */}
       {showAdd && <QuickAddModal onClose={() => setShowAdd(false)} />}
       {editTx && <QuickAddModal onClose={() => setEditTx(null)} editTransaction={editTx} />}
     </div>
